@@ -7,7 +7,6 @@
     "sample-rate": 1000,
     "channels": [
       {
-        "channel-id": 0,
         "gain": 0,
         "ref": 0,
         "window-size": 1,
@@ -38,10 +37,9 @@
         "alarm-sound-file": "media/beep1.wav"
       },
       {
-        "channel-id": 1,
         "gain": 0,
         "ref": 0,
-        "window-size": 15,
+        "window-size": 10,
         "line-color": "b",
         "line-width": 2,
         "label": "Lung Pressure",
@@ -69,10 +67,9 @@
         "alarm-sound-file": null
       },
       {
-        "channel-id": 2,
         "gain": 0,
         "ref": 0,
-        "window-size": 15,
+        "window-size": 10,
         "line-color": "b",
         "line-width": 2,
         "label": "PCO2",
@@ -100,7 +97,6 @@
         "alarm-sound-file": null
       },
       {
-        "channel-id": 3,
         "gain": 0,
         "ref": 0,
         "window-size": 10,
