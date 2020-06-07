@@ -648,8 +648,6 @@ class startDialog(QDialog):
     editDrugButton: QPushButton
     addDrugButton: QPushButton
     delDrugButton: QPushButton
-    expInvestigatorComboBox: QComboBox
-    expCommentsTextEdit: QTextEdit
     configPathLineEdit: QLineEdit
     savePathLineEdit: QLineEdit
 
@@ -669,8 +667,6 @@ class startDialog(QDialog):
             prev_values = {}
         if 'prevGen' not in prev_values.keys():
             prev_values['prevGen'] = []
-        if 'prevInv' not in prev_values.keys():
-            prev_values['prevInv'] = []
         if 'prevDrugs' not in prev_values.keys():
             prev_values['prevDrugs'] = []
         if 'prevConfigFile' not in prev_values.keys():
@@ -749,16 +745,6 @@ class startDialog(QDialog):
             self.drugTable.horizontalHeader().setSectionResizeMode(i, QHeaderView.ResizeToContents)
         self.drugTable.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
 
-        # Experiment TAB
-        self.expInvestigatorComboBox.setModel(QStringListModel())
-        self.expInvestigatorComboBox.addItems(prev_values['prevInv'])
-        existsId = self.expInvestigatorComboBox.findText(self.experiment.investigator)
-        if existsId >= 0:
-            self.expInvestigatorComboBox.removeItem(existsId)
-        self.expInvestigatorComboBox.insertItem(-1, self.experiment.investigator)
-        self.expInvestigatorComboBox.setCurrentIndex(0)
-        self.expCommentsTextEdit.setText(self.experiment.comments)
-
         # CONFIG TAB
         self.configPathLineEdit.setText(self.currConfig.configFile)
         self.savePathLineEdit.setText(self.currConfig.savePath)
@@ -822,7 +808,6 @@ class startDialog(QDialog):
         # save the lists genotypes/investigators/drugs upon accepting
         # so they can be reloaded next time
         out = {'prevGen': self.mouseGenotypeComboBox.model().stringList(),
-               'prevInv': self.expInvestigatorComboBox.model().stringList(),
                'prevDrugs': [drug.__dict__ for drug in self.drugList],
                'prevConfigFile': self.configPathLineEdit.text(),
                'prevSavePath': self.savePathLineEdit.text()}
