@@ -12,9 +12,12 @@ app = QApplication(sys.argv)
 startDlg = startDialog()
 if startDlg.exec():
     config = startDlg.config
-    config['logFile'] = LogFile(startDlg.logFile)
-    out = config['logFile'].getHeader(mouse=startDlg.mouse, drugList=startDlg.drugList, exp=startDlg.experiment)
+    logFile = LogFile(startDlg.logFile)
+    config['log-file'] = logFile
 
     scr = PhysioMonitorMainScreen(config)
+
+    logFile.widget = scr.logBox
+    logFile.append(logFile.getHeader(mouse=startDlg.mouse, drugList=startDlg.drugList, exp=startDlg.experiment))
     scr.show()
     app.exec()

@@ -157,6 +157,9 @@
              <property name="editable">
               <bool>true</bool>
              </property>
+             <property name="maxCount">
+              <number>10</number>
+             </property>
              <property name="insertPolicy">
               <enum>QComboBox::InsertAtTop</enum>
              </property>
@@ -176,6 +179,9 @@
                <horstretch>1</horstretch>
                <verstretch>1</verstretch>
               </sizepolicy>
+             </property>
+             <property name="placeholderText">
+              <string/>
              </property>
             </widget>
            </item>
@@ -386,6 +392,24 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>mouseDoBBox</tabstop>
+  <tabstop>mouseSexMaleRadio</tabstop>
+  <tabstop>mouseSexFemaleRadio</tabstop>
+  <tabstop>mouseSexUnknownRadio</tabstop>
+  <tabstop>mouseWeightSpinBox</tabstop>
+  <tabstop>mouseGenotypeComboBox</tabstop>
+  <tabstop>mouseCommentsTextEdit</tabstop>
+  <tabstop>drugTable</tabstop>
+  <tabstop>editDrugButton</tabstop>
+  <tabstop>addDrugButton</tabstop>
+  <tabstop>delDrugButton</tabstop>
+  <tabstop>tabWidget</tabstop>
+  <tabstop>configPathBrowseButton</tabstop>
+  <tabstop>savePathBrowseButton</tabstop>
+  <tabstop>configPathLineEdit</tabstop>
+  <tabstop>savePathLineEdit</tabstop>
+ </tabstops>
  <resources/>
  <connections>
   <connection>

@@ -200,11 +200,13 @@ Comments:
 
 ## start log
 """
-    DRUGS_HEADER = "Drug name\tdose (mg/kg)\tconcentration (mg/mL)\tVolume to inject (μL)"
+    DRUGS_HEADER = "Drug name | dose (mg/kg) | concentration (mg/mL) | Volume to inject (μL)"
     SEX = ['Male', 'Female', 'Unknown']
 
     def __init__(self, path):
         self._path = path
+        self.content = ""
+        self.widget = None
 
     @property
     def path(self):
@@ -214,7 +216,7 @@ Comments:
         mouseAge = (datetime.date.today() - mouse.dob).days
         drugs = self.DRUGS_HEADER + '\n'
         for drug in drugList:
-            drugs += '\t'.join(drug.asStrList()) + '\n'
+            drugs += ' | '.join(drug.asStrList()) + '\n'
         return self.HEADER.format(expDate=datetime.date.today().isoformat(),
                                   mouseGenotype=mouse.genotype,
                                   mouseSex=self.SEX[mouse.sex-1],
@@ -223,3 +225,10 @@ Comments:
                                   mouseWeight=mouse.weight,
                                   mouseComments=mouse.comments,
                                   drugs=drugs)
+
+    def append(self, text):
+        self.content += text
+        with open(self._path, 'a') as f:
+            f.write(text)
+        if self.widget is not None:
+            self.widget.appendPlainText(text.rstrip())
