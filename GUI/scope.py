@@ -193,6 +193,8 @@ class ScrollingScope(pg.PlotItem):
     def showEvent(self, QShowEvent):
         super(ScrollingScope, self).showEvent(QShowEvent)
         self.scene().addItem(self._trendVB)
+
+    def start(self):
         self._trendTimer.start(self._trendPeriod * 1000)
 
     def onResize(self):
@@ -540,7 +542,7 @@ def peakdet(v, delta, x=None):
     if not np.isscalar(delta):
         raise ValueError('Input argument delta must be a scalar')
 
-    if delta <= 0:
+    if delta < 0:
         raise ValueError('Input argument delta must be positive')
 
     mn, mx = np.Inf, -np.Inf
