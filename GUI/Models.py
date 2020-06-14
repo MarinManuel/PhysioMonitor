@@ -27,10 +27,10 @@ class DoubleSpinBoxDelegate(QStyledItemDelegate):
 
 
 class DrugTableModel(QAbstractTableModel):
-    HEADER = ['Name', 'Dose', 'Concentration', 'Inj. volume']
-    FIELDS = ['name', 'dose', 'concentration', 'volume']
-    UNITS = [None, 'mg/kg', 'mg/mL', 'μL']
-    FORMATS = ['{:s}', '{:.2f}', '{:.2f}', '{:d}']
+    HEADER = ['Name', 'Dose', 'Concentration', 'Inj. volume', 'Pump']
+    FIELDS = ['name', 'dose', 'concentration', 'volume', 'pump']
+    UNITS = [None, 'mg/kg', 'mg/mL', 'μL', None]
+    FORMATS = ['{:s}', '{:.2f}', '{:.2f}', '{:d}', '{}']
 
     def __init__(self, data=None):
         QAbstractTableModel.__init__(self)
@@ -52,6 +52,11 @@ class DrugTableModel(QAbstractTableModel):
 
         if role == Qt.DisplayRole:
             value = self._data[row].asList()[column]
+            if column == 4:
+                if value is None:
+                    return 'Manual'
+                else:
+                    return 'Pump #{}'.format(value)
             value = self.FORMATS[column].format(value)
             units = self.UNITS[column]
             if units is not None and len(units) > 0:
@@ -111,11 +116,9 @@ class DrugTableModel(QAbstractTableModel):
         return False
 
     def flags(self, index):
-        """ Set the item flags at the given index. Seems like we're
-            implementing this function just to see how it's done, as we
-            manually adjust each tableView to have NoEditTriggers.
-        """
         if not index.isValid():
             return Qt.ItemIsEnabled
+        if index.column() == 4:
+            return Qt.ItemFlags(QAbstractTableModel.flags(self, index) | ~Qt.ItemIsEditable)
         return Qt.ItemFlags(QAbstractTableModel.flags(self, index) |
                             Qt.ItemIsEditable)

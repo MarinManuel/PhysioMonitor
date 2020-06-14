@@ -1,14 +1,13 @@
 {
   "log-filename": "SurgicalLog.txt",
-  "autosave-log": "yes",
   "comedi": {
     "device": "/dev/comedi0",
     "sub-device": 0,
     "sample-rate": 1000,
     "channels": [
       {
-        "gain": 0,
-        "ref": 0,
+        "gain-mode": 0,
+        "ref-mode": 0,
         "window-size": 1,
         "line-color": "#007F00",
         "line-width": 2,
@@ -37,8 +36,8 @@
         "alarm-sound-file": "media/beep1.wav"
       },
       {
-        "gain": 0,
-        "ref": 0,
+        "gain-mode": 0,
+        "ref-mode": 0,
         "window-size": 10,
         "line-color": "b",
         "line-width": 2,
@@ -56,7 +55,9 @@
         "trend-window-size": 60,
         "trend-period": 1,
         "trend-function": "lastPeak",
-        "trend-function-args": {"peakSize": 1.0},
+        "trend-function-args": {
+          "peakSize": 1.0
+        },
         "trend-units": "cmH2O",
         "trend-autoscale": false,
         "trend-ymin": 0.0,
@@ -64,11 +65,11 @@
         "alarm-enabled": false,
         "alarm-low": 0,
         "alarm-high": 0,
-        "alarm-sound-file": null
+        "alarm-sound-file": "media/beep2.wav"
       },
       {
-        "gain": 0,
-        "ref": 0,
+        "gain-mode": 0,
+        "ref-mode": 0,
         "window-size": 10,
         "line-color": "b",
         "line-width": 2,
@@ -86,7 +87,9 @@
         "trend-window-size": 60,
         "trend-period": 1,
         "trend-function": "lastPeak",
-        "trend-function-args": {"peakSize": 1.0},
+        "trend-function-args": {
+          "peakSize": 1.0
+        },
         "trend-units": "%",
         "trend-autoscale": false,
         "trend-ymin": 0.0,
@@ -94,11 +97,11 @@
         "alarm-enabled": false,
         "alarm-low": 0,
         "alarm-high": 0,
-        "alarm-sound-file": null
+        "alarm-sound-file": "media/beep3.wav"
       },
       {
-        "gain": 0,
-        "ref": 0,
+        "gain-mode": 0,
+        "ref-mode": 0,
         "window-size": 10,
         "line-color": "#CC0000",
         "line-width": 2,
@@ -127,5 +130,30 @@
         "alarm-sound-file": "media/beep6.wav"
       }
     ]
-  }
+  },
+  "serial-ports": [
+    {
+      "port": "COM1",
+      "baud-rate": 9600,
+      "byte-size": 8,
+      "parity": "N",
+      "stop-bits": 1,
+      "timeout": 0
+    },
+    {
+      "port": "COM2",
+      "baud-rate": 9600,
+      "byte-size": 8,
+      "parity": "N",
+      "stop-bits": 1,
+      "timeout": 0
+    }
+  ],
+  "pumps": [
+    {
+      "model": "dummy",
+      "serial-port": 0,
+      "address": 0
+    }
+  ]
 }

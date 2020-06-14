@@ -2,7 +2,9 @@ import datetime
 import json
 import logging
 import os
+
 import pygame
+import serial
 from PyQt5 import uic
 from PyQt5.QtCore import QTimer, QSize, QRect, QModelIndex, QDate, QStringListModel
 from PyQt5.QtCore import Qt
@@ -12,11 +14,18 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QDialog, QDoubleSpinBo
     QRadioButton, QGroupBox, QStyle, QPlainTextEdit, QTabWidget, QScrollArea, QInputDialog, QFrame, QApplication, \
     QCheckBox, QProxyStyle, QHeaderView, QFileDialog, QComboBox, QDateEdit, QButtonGroup, QTextEdit, QTableView, \
     QMessageBox
+
 from GUI.Models import DoubleSpinBoxDelegate, DrugTableModel
 from GUI.scope import ScopeLayoutWidget, PagedScope
-from monitor.Objects import Drug, Sex, Mouse, Experiment, Config, LogFile
+from monitor.Objects import Drug, Sex, Mouse, LogFile
+from monitor import SyringePumps
+from monitor.sampling import SurgeryFileStreamer
 
-PREVIOUS_VALUES_FILE = 'prev_vals.jsom'
+PREVIOUS_VALUES_FILE = 'prev_vals.json'
+
+AVAIL_PUMPS = {'dummy': SyringePumps.DummyPump,
+               'aladdin': SyringePumps.AladdinPump,
+               'model11plus': SyringePumps.Model11plusPump}
 
 # if it hasn't been already, initialize the sound mixer
 if pygame.mixer.get_init() is None:
@@ -54,7 +63,7 @@ class IconProxyStyle(QProxyStyle):
         super().drawControl(element, option, painter, widget)
 
 
-class clockWidget(QWidget):
+class ClockWidget(QWidget):
     def __init__(self, showDate=True, timeSize=30, dateSize=20, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.TIME_FORMAT = "%H:%M"
@@ -92,12 +101,12 @@ class clockWidget(QWidget):
         self._dateLabel.setText(datetime.datetime.now().strftime(self.DATE_FORMAT))
 
 
-class customDialog(QDialog):
+class CustomDialog(QDialog):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         self.buttonBox.button(QDialogButtonBox.Ok).setIcon(QApplication.style().standardIcon(QStyle.SP_DialogOkButton))
-        self.buttonBox.button(QDialogButtonBox.Ok).setIcon(
+        self.buttonBox.button(QDialogButtonBox.Cancel).setIcon(
             QApplication.style().standardIcon(QStyle.SP_DialogCancelButton))
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
@@ -125,7 +134,7 @@ class customDialog(QDialog):
 
     @staticmethod
     def getDouble(parent, value=0.0, minVal=0.0, maxVal=float('inf'), units=None, text=None, title="Enter a value"):
-        dlg = customDialog()
+        dlg = CustomDialog()
 
         spinBox = QDoubleSpinBox(parent)
         spinBox.setMinimum(minVal)
@@ -162,7 +171,7 @@ class customDialog(QDialog):
                 lineEdit.selectAll()
                 timeBox.setFocus()
 
-        dlg = customDialog(parent)
+        dlg = CustomDialog(parent)
         dlg.setWindowTitle(title)
 
         label = QLabel(text)
@@ -204,8 +213,8 @@ class customDialog(QDialog):
         return val, result == QDialog.Accepted
 
     @staticmethod
-    def getDrugVolume(parent, name, volume):
-        dlg = customDialog(parent)
+    def getDrugVolume(parent, name, volume, addInject=False):
+        dlg = CustomDialog(parent)
         dlg.setWindowTitle("Enter drug information")
 
         drugNameLabel = QLabel("Drug name:")
@@ -213,9 +222,9 @@ class customDialog(QDialog):
         drugNameInput.setText(name)
         drugVolumeLabel = QLabel("Volume:")
         drugVolumeInput = QSpinBox()
-        drugVolumeInput.setValue(volume if volume > 1 else 1)
         drugVolumeInput.setMinimum(1)
         drugVolumeInput.setMaximum(2147483647)
+        drugVolumeInput.setValue(volume)
         drugVolumeInput.setAlignment(Qt.AlignRight)
         drugVolumeInput.setSuffix(' μL')
 
@@ -227,71 +236,60 @@ class customDialog(QDialog):
         layout.addWidget(drugVolumeLabel, 0, 1)
         layout.addWidget(drugNameInput, 1, 0)
         layout.addWidget(drugVolumeInput, 1, 1)
+        if addInject:
+            addInjectButton = QPushButton("Add and inject")
+            addInjectButton.setIcon(QApplication.style().standardIcon(QStyle.SP_DialogOkButton))
+            addInjectButton.setDefault(True)
+            addInjectButton.clicked.connect(lambda: dlg.done(QDialogButtonBox.YesToAll))
+            dlg.buttonBox.addButton(addInjectButton, QDialogButtonBox.ActionRole)
+            dlg.buttonBox.button(QDialogButtonBox.Ok).setText("Add to panel")
 
         dlg.layout.insertLayout(0, layout)
         result = dlg.exec()
         name = drugNameInput.text()
         volume = drugVolumeInput.value()
-        return name, volume, result == QDialog.Accepted
-
-    @staticmethod
-    def getDrugVolumeAndInject(parent, name, volume):
-        dlg = customDialog(parent)
-        dlg.setWindowTitle("Enter drug information")
-
-        drugNameLabel = QLabel("Drug name:")
-        drugNameInput = QLineEdit()
-        drugNameInput.setText(name)
-        drugVolumeLabel = QLabel("Volume (μL):")
-        drugVolumeInput = QSpinBox()
-        drugVolumeInput.setValue(volume if volume > 1 else 1)
-        drugVolumeInput.setMinimum(1)
-        drugVolumeInput.setMaximum(2147483647)
-        drugVolumeInput.setAlignment(Qt.AlignRight)
-        drugVolumeInput.setSuffix(' μL')
-        injectCheckBox = QCheckBox("Drug was injected")
-        injectCheckBox.setChecked(True)
-
-        layout = QGridLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setHorizontalSpacing(10)
-        layout.setVerticalSpacing(0)
-        layout.addWidget(drugNameLabel, 0, 0)
-        layout.addWidget(drugVolumeLabel, 0, 1)
-        layout.addWidget(drugNameInput, 1, 0)
-        layout.addWidget(drugVolumeInput, 1, 1)
-        layout.addWidget(injectCheckBox, 2, 0, 1, 2)
-
-        dlg.layout.insertLayout(0, layout)
-        result = dlg.exec()
-        name = drugNameInput.text()
-        volume = drugVolumeInput.value()
-        injected = injectCheckBox.isChecked()
-        return name, volume, injected, result == QDialog.Accepted
+        return name, volume, result
 
 
 class DrugEditDialog(QDialog):
-    def __init__(self, name="", dose=0.0, concentration=0.0, volume=0):
+    drugNameLineEdit: QLineEdit
+    drugDoseSpinBox: QDoubleSpinBox
+    drugConcentrationSpinBox: QDoubleSpinBox
+    drugVolumeSpinBox: QSpinBox
+    usePumpCheckBox: QCheckBox
+    pumpIdSpinBox: QSpinBox
+
+    def __init__(self, name="", dose=0.0, concentration=0.0, volume=0, pump=None):
         super().__init__()
         uic.loadUi('./GUI/DrugEditDialog.ui', self)
         self.drugNameLineEdit.setText(name)
         self.drugDoseSpinBox.setValue(float(dose))
         self.drugConcentrationSpinBox.setValue(float(concentration))
         self.drugVolumeSpinBox.setValue(int(volume))
+        self.usePumpCheckBox.toggled.connect(self.usePumpToggled)
+        if pump is None:
+            self.usePumpCheckBox.setChecked(False)
+        else:
+            self.usePumpCheckBox.setChecked(True)
+            self.pumpIdSpinBox.setValue(pump)
+
+    def usePumpToggled(self, state):
+        self.pumpIdSpinBox.setEnabled(state)
 
     @staticmethod
-    def getDrugData(name="", dose=0.0, concentration=0.0, volume=0):
-        dlg = DrugEditDialog(name, dose, concentration, volume)
+    def getDrugData(name="", dose=0.0, concentration=0.0, volume=0, pump=None):
+        dlg = DrugEditDialog(name, dose, concentration, volume, pump)
 
         result = dlg.exec()
         name = dlg.drugNameLineEdit.text()
         dose = dlg.drugDoseSpinBox.value()
         concentration = dlg.drugConcentrationSpinBox.value()
         volume = dlg.drugVolumeSpinBox.value()
-        return name, dose, concentration, volume, result == QDialog.Accepted
+        pump = None if not dlg.usePumpCheckBox.isChecked() else dlg.pumpIdSpinBox.value()
+        return name, dose, concentration, volume, pump, result == QDialog.Accepted
 
 
-class drugTimer(QLabel):
+class DrugTimer(QLabel):
     def __init__(self, parent, alarmThresh=None, alarmSoundFile=None):
         super().__init__(parent)
         self._duration = datetime.timedelta()
@@ -385,7 +383,7 @@ class drugTimer(QLabel):
         return self._alarmThresh
 
 
-class drugPanel(QGroupBox):
+class DrugPanel(QGroupBox):
     def __init__(self, parent, drugName, drugVolume, alarmSoundFile=None, logFile: LogFile = None):
         super().__init__(parent)
         self._LABEL_FORMAT = "{drugName} ({drugVolume:.0f} μL)"
@@ -425,7 +423,7 @@ class drugPanel(QGroupBox):
         self._halfDoseButton.clicked.connect(self.onHalfDoseButtonClick)
         self._customDoseButton.clicked.connect(self.onCustomDoseButtonClick)
 
-        self._timer = drugTimer(self, alarmSoundFile=alarmSoundFile)
+        self._timer = DrugTimer(self, alarmSoundFile=alarmSoundFile)
 
         self._enableAlarmButton = QPushButton(self._ALARM_LABEL_OFF, self)
         self._enableAlarmButton.setCheckable(True)
@@ -437,15 +435,21 @@ class drugPanel(QGroupBox):
         self._enableAlarmButton.setIconSize(QSize(25, 25))
         self._enableAlarmButton.clicked.connect(self.onChoiceAlarm)
 
-        box = QGridLayout()
-        box.setSpacing(0)
-        box.setContentsMargins(0, 0, 0, 0)
-        box.addWidget(self._fullDoseButton, 0, 0)
-        box.addWidget(self._halfDoseButton, 0, 1)
-        box.addWidget(self._customDoseButton, 0, 2)
-        box.addWidget(self._timer, 1, 0)
-        box.addWidget(self._enableAlarmButton, 1, 1, 1, 2)
-        self.setLayout(box)
+        hbox1 = QHBoxLayout()
+        hbox2 = QHBoxLayout()
+        vbox = QVBoxLayout()
+        for box in [hbox1, hbox2, vbox]:
+            box.setSpacing(0)
+            box.setContentsMargins(0, 0, 0, 0)
+
+        hbox1.addWidget(self._fullDoseButton)
+        hbox1.addWidget(self._halfDoseButton)
+        hbox1.addWidget(self._customDoseButton)
+        hbox2.addWidget(self._timer)
+        hbox2.addWidget(self._enableAlarmButton)
+        vbox.addLayout(hbox1)
+        vbox.addLayout(hbox2)
+        self.setLayout(vbox)
         self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
     def doInjectDrug(self, volume):
@@ -453,7 +457,6 @@ class drugPanel(QGroupBox):
         output = self._LOG_FORMAT.format(time=currTime, drugName=self._drugName, drugVolume=volume)
         if self._logFile is not None:
             self._logFile.append(output)
-            logger.debug('Inject drug: {}', output)
         else:
             print(output)
         self._timer.start()
@@ -468,14 +471,14 @@ class drugPanel(QGroupBox):
 
     # noinspection PyUnusedLocal
     def onCustomDoseButtonClick(self, event):
-        val, ok = customDialog.getDouble(self, value=self._drugVolume, text="Enter custom amount (μL)")
+        val, ok = CustomDialog.getDouble(self, value=self._drugVolume, text="Enter custom amount (μL)")
         if ok:
             self.doInjectDrug(val)
 
     # noinspection PyUnusedLocal
     def onChoiceAlarm(self, event):
         if self._enableAlarmButton.isChecked():
-            val, ok = customDialog.getTime(self, value=self._timer.alarmThreshold,
+            val, ok = CustomDialog.getTime(self, value=self._timer.alarmThreshold,
                                            text='Time before alarm')
             if ok:
                 self._timer.setAlarmThreshInMins(val)
@@ -488,17 +491,18 @@ class drugPanel(QGroupBox):
 
     # noinspection PyUnusedLocal
     def onDrugLabelClick(self, event):
-        drugName, drugVolume, ok = customDialog.getDrugVolume(self, self._drugName, self._drugVolume)
-        if ok:
+        drugName, drugVolume, ok = CustomDialog.getDrugVolume(self, self._drugName, self._drugVolume)
+        if ok == QDialog.Accepted:
             self._drugName = drugName
             self._drugVolume = drugVolume
             self.setTitle(self._LABEL_FORMAT.format(drugName=self._drugName, drugVolume=self._drugVolume))
 
 
-class drugPumpPanel(drugPanel):
-    def __init__(self, parent, drugName, drugVolume, alarmSoundFile=None, logFile=None):
+class DrugPumpPanel(DrugPanel):
+    def __init__(self, parent, drugName, drugVolume, pump: SyringePumps.SyringePump, alarmSoundFile=None, logFile=None):
         drugVolume = float(drugVolume)
         super().__init__(parent, drugName, drugVolume, alarmSoundFile, logFile)
+        self.pump = pump
         self.setStyleSheet(self.styleSheet() + """
             QGroupBox {
                 background-color: #C1C9E2;
@@ -508,6 +512,15 @@ class drugPumpPanel(drugPanel):
         self._autoInjectCheckBox.setIcon(self.style().standardIcon(QStyle.SP_MediaSkipForward))
         self._autoInjectCheckBox.setStyle(IconProxyStyle(self._autoInjectCheckBox.style()))
         self.layout().addWidget(self._autoInjectCheckBox)
+
+        self._perfRateSpinBox = QDoubleSpinBox()
+        self._perfRateUnitsComboBox = QComboBox()
+        self._perfStartButton = QPushButton("Start Perf")
+        box = QHBoxLayout()
+        box.addWidget(self._perfRateSpinBox)
+        box.addWidget(self._perfRateUnitsComboBox)
+        box.addWidget(self._perfStartButton)
+        self.layout().insertLayout(1, box)
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -526,6 +539,40 @@ class PhysioMonitorMainScreen(QFrame):
     def __init__(self, config):
         super().__init__()
 
+        self.config = config
+
+        self.serialPorts = []
+        for serial_conf in self.config['serial-ports']:
+
+            try:
+                ser = serial.Serial(serial_conf['port'], serial_conf['baud-rate'],
+                                    bytesize=serial_conf['byte-size'], parity=serial_conf['parity'],
+                                    stopbits=serial_conf['stop-bits'],
+                                    timeout=serial_conf['timeout'])
+            except serial.SerialException:
+                ser = None
+            if ser is None:
+                # noinspection PyTypeChecker
+                QMessageBox.warning(None, 'Serial port error',
+                                    'Cannot open serial port "{:s}"!\n'
+                                    'Serial connection will not be available'.format(serial_conf['port']))
+            self.serialPorts.append(ser)
+
+        self.pumps = []
+        for pump_conf in self.config['pumps']:
+            model = pump_conf['model']
+            if model not in AVAIL_PUMPS:
+                raise ValueError('Incorrect pump model: {}'.format(pump_conf['model']))
+            pump = AVAIL_PUMPS[model](serialport=self.serialPorts[pump_conf['serial-port']])
+            self.pumps.append(pump)
+
+        self.__refreshTimer = QTimer()
+        self.__refreshTimer.timeout.connect(self.update)
+        self.__stream = SurgeryFileStreamer(nChan=len(config['comedi']['channels']), filename="./media/surgery.txt",
+                                            pointsToReturn=None)
+        #
+        # UI elements
+        #
         # LOG BOX
         self.logBox = QPlainTextEdit()
         self.logBox.setLineWrapMode(False)
@@ -539,7 +586,7 @@ class PhysioMonitorMainScreen(QFrame):
         layout10 = QVBoxLayout()
 
         # Create some widgets to be placed inside
-        clock = clockWidget()
+        clock = ClockWidget()
         self._graphLayout = ScopeLayoutWidget()
 
         notebook = QTabWidget()
@@ -557,12 +604,12 @@ class PhysioMonitorMainScreen(QFrame):
         self.drugPanelsLayout.setContentsMargins(0, 0, 0, 0)
         self.drugPanelsLayout.setSpacing(0)
         for i, drug in enumerate(config['drug-list']):
-            if i == 0:
-                panel = drugPumpPanel(None, drug.name, drug.volume, alarmSoundFile='./media/beep3x6.wav',
-                                      logFile=self.logFile)
+            if drug.pump is not None:
+                panel = DrugPumpPanel(None, drug.name, drug.volume, pump=None,  # FIXME pump=self.pumps[drug.pump],
+                                      alarmSoundFile='./media/beep3x6.wav', logFile=self.logFile)
             else:
-                panel = drugPanel(None, drug.name, drug.volume, alarmSoundFile='./media/beep3x6.wav',
-                                  logFile=self.logFile)
+                panel = DrugPanel(None, drug.name, drug.volume,
+                                  alarmSoundFile='./media/beep3x6.wav', logFile=self.logFile)
             self.drugPanelsLayout.addWidget(panel)
         self.drugPanelsLayout.setAlignment(Qt.AlignTop)
         widget.setLayout(self.drugPanelsLayout)
@@ -612,16 +659,14 @@ class PhysioMonitorMainScreen(QFrame):
                 alarmSoundFile=chan['alarm-sound-file']
             )
             self._graphLayout.addItem(plot, i, 1)
-
         self.setLayout(layout00)
 
-        # self.__stream = SurgeryFileStreamer(nChan=len(config['comedi']['channels']), filename="./media/surgery.txt",
-        #                                     pointsToReturn=None)
-        # self.__stream.start()
-        #
-        # self.__refreshTimer = QTimer()
-        # self.__refreshTimer.timeout.connect(self.update)
-        # self.__refreshTimer.start(50)
+    def start(self):
+        self.__stream.start()
+        self.__refreshTimer.start(50)
+        for i in range(len(self._graphLayout.centralWidget.items)):
+            plot = self._graphLayout.getItem(i, 1)
+            plot.start()
 
     def update(self):
         data = self.__stream.read()
@@ -631,18 +676,18 @@ class PhysioMonitorMainScreen(QFrame):
         text, ok = QInputDialog.getText(self, 'Add a note to the log', 'Note:')
         if ok and len(text) > 0:
             currTime = datetime.datetime.now().strftime("%H:%M:%S")
-            self.logFile.append('{:s}\t{:s}'.format(currTime, text))
+            self.logFile.append('{:s}\t{:s}\n'.format(currTime, text))
 
     def addNewDrug(self):
-        name, volume, injected, ok = customDialog.getDrugVolumeAndInject(self, name="", volume=0)
-        if ok:
-            newPanel = drugPanel(None, drugName=name, drugVolume=volume, logFile=self.logFile)
+        name, volume, ok = CustomDialog.getDrugVolume(self, name="", volume=0, addInject=True)
+        if ok == QDialog.Accepted or ok == QDialogButtonBox.YesToAll:
+            newPanel = DrugPanel(None, drugName=name, drugVolume=volume, logFile=self.logFile)
             self.drugPanelsLayout.addWidget(newPanel)
-            if injected:
+            if ok == QDialogButtonBox.YesToAll:
                 newPanel.onFullDoseButtonClick(None)
 
 
-class startDialog(QDialog):
+class StartDialog(QDialog):
     expInvestigatorComboBox: QComboBox
     mouseDoBBox: QDateEdit
     mouseSexButtonGroup: QButtonGroup
@@ -656,7 +701,7 @@ class startDialog(QDialog):
     configPathLineEdit: QLineEdit
     savePathLineEdit: QLineEdit
 
-    def __init__(self, mouse=None, drugList=None, exp=None, config=None):
+    def __init__(self, config):
         super().__init__()
         uic.loadUi('./GUI/StartScreen.ui', self)
 
@@ -670,46 +715,33 @@ class startDialog(QDialog):
                 prev_values: dict = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             prev_values = {}
-        if 'prevGen' not in prev_values.keys():
-            prev_values['prevGen'] = []
-        if 'prevDrugs' not in prev_values.keys():
-            prev_values['prevDrugs'] = []
-        if 'prevConfigFile' not in prev_values.keys():
-            prev_values['prevConfigFile'] = ''
-        if 'prevSavePath' not in prev_values.keys():
-            prev_values['prevSavePath'] = ''
+        if 'genotypes' not in prev_values.keys():
+            prev_values['genotypes'] = []
+        if 'drugs' not in prev_values.keys():
+            prev_values['drugs'] = []
+        if 'config-file' not in prev_values.keys():
+            prev_values['config-file'] = ''
+        if 'save-path' not in prev_values.keys():
+            prev_values['save-path'] = ''
         temp = [Drug(name=drug['_name'],
                      dose=drug['_dose'],
                      concentration=drug['_concentration'],
-                     volume=drug['_volume']) for drug in prev_values['prevDrugs']]
-        prev_values['prevDrugs'] = temp
+                     volume=drug['_volume'],
+                     pump=drug['_pump']) for drug in prev_values['drugs']]
+        prev_values['drugs'] = temp
 
-        if mouse is None:
-            self.mouse = Mouse()
+        self.mouse = Mouse()
+        self.drugList = prev_values['drugs']
+        self.configFile = prev_values['config-file']
+        self.savePath = prev_values['save-path']
+        self.config = config
+        self.saveFolder = os.path.join(prev_values['save-path'], datetime.date.today().isoformat())
+        if 'log-filename' not in self.config:
+            self.logFile = ''
         else:
-            self.mouse = mouse
+            self.logFile = os.path.join(self.saveFolder, self.config['log-filename'])
 
-        if drugList is None:
-            self.drugList = prev_values['prevDrugs']
-        else:
-            self.drugList = drugList
-
-        if exp is None:
-            self.experiment = Experiment()
-        else:
-            self.experiment = exp
-
-        if config is None:
-            self.currConfig = Config(configFile=prev_values['prevConfigFile'], savePath=prev_values['prevSavePath'])
-        else:
-            self.currConfig = config
-        if os.path.isfile(prev_values['prevConfigFile']):
-            with open(prev_values['prevConfigFile'], 'r') as f:
-                self.config = json.load(f)
-
-        self.saveFolder = os.path.join(self.currConfig.savePath, datetime.date.today().isoformat())
-        self.logFile = os.path.join(self.saveFolder, self.config['log-filename'])
-
+        self.isResumed = False
         if os.path.isfile(self.logFile):
             # we already have a log file in the folder, ask whether to resume
             dlg = QMessageBox()
@@ -718,9 +750,15 @@ class startDialog(QDialog):
             dlg.setText("The folder already contains a log file.")
             dlg.setInformativeText('Do you want to resume the previous session?')
             dlg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
-            ok = dlg.exec()
-            if ok == QMessageBox.Yes:
-                self.parseLog(self.logFile)
+            if dlg.exec() == QMessageBox.Yes:
+                mouse, drugs = LogFile.parse(self.logFile)
+                if mouse is None:
+                    # noinspection PyTypeChecker
+                    QMessageBox.information(None, "Could not parse", "Failed to parse previous log file.")
+                else:
+                    self.mouse = mouse
+                    self.drugList = drugs
+                    self.isResumed = True
 
         # MOUSE TAB
         # noinspection PyTypeChecker
@@ -730,7 +768,7 @@ class startDialog(QDialog):
         self.mouseSexButtonGroup.button(self.mouse.sex).setChecked(True)
         self.mouseWeightSpinBox.setValue(self.mouse.weight)
         self.mouseGenotypeComboBox.setModel(QStringListModel())  # Convenient to get a list of strings at the end
-        self.mouseGenotypeComboBox.addItems(prev_values['prevGen'])
+        self.mouseGenotypeComboBox.addItems(prev_values['genotypes'])
         existsId = self.mouseGenotypeComboBox.findText(self.mouse.genotype)
         if existsId >= 0:
             self.mouseGenotypeComboBox.removeItem(existsId)
@@ -741,7 +779,7 @@ class startDialog(QDialog):
         # DRUG LIST TAB
         self.tableModel = DrugTableModel(self.drugList)
         self.drugTable.setModel(self.tableModel)
-        for i in range(1, self.tableModel.columnCount()):
+        for i in range(1, self.tableModel.columnCount() - 1):
             self.drugTable.setItemDelegateForColumn(i, DoubleSpinBoxDelegate(self))
         self.editDrugButton.clicked.connect(self.editEntry)
         self.addDrugButton.clicked.connect(self.addEntry)
@@ -751,15 +789,13 @@ class startDialog(QDialog):
         self.drugTable.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
 
         # CONFIG TAB
-        self.configPathLineEdit.setText(self.currConfig.configFile)
-        self.savePathLineEdit.setText(self.currConfig.savePath)
-        self.configPathBrowseButton.clicked.connect(self.browseConfigFile)
+        self.savePathLineEdit.setText(self.savePath)
         self.savePathBrowseButton.clicked.connect(self.browseSavePath)
 
     def addEntry(self):
-        name, dose, concentration, volume, ok = DrugEditDialog.getDrugData()
+        name, dose, concentration, volume, pump, ok = DrugEditDialog.getDrugData()
         if ok:
-            newDrug = Drug(name=name, dose=dose, concentration=concentration, volume=volume)
+            newDrug = Drug(name=name, dose=dose, concentration=concentration, volume=volume, pump=pump)
             newRow = self.tableModel.rowCount()
             self.tableModel.insertRows(newRow)
 
@@ -778,9 +814,9 @@ class startDialog(QDialog):
             for i in range(self.tableModel.columnCount()):
                 ix = self.tableModel.index(row, i, QModelIndex())
                 drugData.append(self.tableModel.data(ix, Qt.EditRole))
-            name, dose, concentration, volume, ok = DrugEditDialog.getDrugData(*drugData)
+            name, dose, concentration, volume, pump, ok = DrugEditDialog.getDrugData(*drugData)
             if ok:
-                for j, field in enumerate([name, dose, concentration, volume]):
+                for j, field in enumerate([name, dose, concentration, volume, pump]):
                     ix = self.tableModel.index(row, j, QModelIndex())
                     self.tableModel.setData(ix, field, Qt.EditRole)
 
@@ -789,7 +825,7 @@ class startDialog(QDialog):
         indexes = selectionModel.selectedRows()
 
         for index in indexes:
-            self.drugTable.model().removeRows(index.row(), count=1)
+            self.drugTable.model().removeRows(index.row(), 1)
 
     # noinspection PyUnusedLocal
     def browseConfigFile(self, event):
@@ -809,22 +845,24 @@ class startDialog(QDialog):
         if len(path) > 0:
             self.savePathLineEdit.setText(path)
 
+    def exec(self) -> int:
+        # if the content of the dialog was imported from previous session
+        # then skip showing it altogether and accept the values
+        if self.isResumed:
+            self.accept()
+            return self.Accepted
+        else:
+            return super().exec()
+
     def accept(self) -> None:
+        # Accept new entry in genotype list if necessary
         text = self.mouseGenotypeComboBox.lineEdit().text()
         pos = self.mouseGenotypeComboBox.findText(text)
         if pos >= 0:
             self.mouseGenotypeComboBox.removeItem(pos)
         self.mouseGenotypeComboBox.insertItem(0, text)
 
-        # save the lists genotypes/investigators/drugs upon accepting
-        # so they can be reloaded next time
-        out = {'prevGen': self.mouseGenotypeComboBox.model().stringList(),
-               'prevDrugs': [drug.__dict__ for drug in self.drugList],
-               'prevConfigFile': self.configPathLineEdit.text(),
-               'prevSavePath': self.savePathLineEdit.text()}
-        with open(PREVIOUS_VALUES_FILE, 'w') as f:
-            json.dump(out, f)
-
+        # save data
         self.mouse.genotype = self.mouseGenotypeComboBox.itemText(0)
         if self.mouseSexButtonGroup.checkedId() == Sex.MALE:
             self.mouse.sex = Sex.MALE
@@ -836,9 +874,17 @@ class startDialog(QDialog):
         self.mouse.dob = self.mouseDoBBox.date().toPyDate()
         self.mouse.comments = self.mouseCommentsTextEdit.toPlainText()
 
+        self.savePath = self.savePathLineEdit.text()
+        self.logFile = os.path.join(self.savePath, datetime.date.today().isoformat(), self.config['log-filename'])
         self.config['drug-list'] = self.drugList
 
-        super().accept()
+        # save the lists genotypes/investigators/drugs upon accepting
+        # so they can be reloaded next time
+        out = {'genotypes': self.mouseGenotypeComboBox.model().stringList(),
+               'drugs': [drug.__dict__ for drug in self.drugList],
+               'save-path': self.savePath
+               }
+        with open(PREVIOUS_VALUES_FILE, 'w') as f:
+            json.dump(out, f)
 
-    def parseLog(self, filename):
-        pass
+        super().accept()

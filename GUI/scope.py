@@ -6,16 +6,17 @@ import os
 import numpy as np
 import pygame
 import pyqtgraph as pg
+from PyQt5.QtWidgets import QMenu, QAction, QFormLayout, QDoubleSpinBox, QWidget, QWidgetAction
 from pyqtgraph.Qt import QtCore, QtGui
 
 from monitor.buffers import RollingBuffer
 
-BACKGROUND_COLOR = (235, 235, 235)
+BACKGROUND_COLOR = (226, 226, 226)
 AXES_COLOR = (0, 0, 0)
 
 pg.setConfigOption('background', BACKGROUND_COLOR)
 pg.setConfigOption('foreground', AXES_COLOR)
-pg.setConfigOptions(antialias=True)  # WARNING: setting to True could slow down execution
+pg.setConfigOptions(antialias=False)  # WARNING: setting to True could slow down execution
 
 # if it hasn't been already, initialize the sound mixer
 if pygame.mixer.get_init() is None:
@@ -100,7 +101,9 @@ class ScrollingScope(pg.PlotItem):
         self.vb.setMouseEnabled(x=False, y=False)
         # Monkey-patch the mouseClickEvent function in ViewBox with our own.
         # That way, we can disable right-click menu (or do whatever we want)
-        self.vb.mouseClickEvent = self.mouseClickEvent
+        self.vb.menu = None
+        self.vb.menu = self._createMenu()
+        self.vb.raiseContextMenu = self._raiseContextMenu
         # Remove the auto-scale button
         self.hideButtons()
         # Disable auto-scaling on all axes
@@ -165,16 +168,16 @@ class ScrollingScope(pg.PlotItem):
             self._trendVB.viewRange()[0][1], self._trendVB.viewRange()[1][0]
         )
         self._trendVB.addItem(self._trendText)
-        self._trendAxis.setPen({'color': self._trendlinecolor})  # FIXME: I would like to change only the color of the
-        # ticks labels, and not of the whole axis
+        self._trendAxis.setPen({'color': self._trendlinecolor})
+        # FIXME: I would like to change only the color of the ticks labels, and not of the whole axis
         self._trendTimer = pg.QtCore.QTimer()
         # noinspection PyUnresolvedReferences
         self._trendTimer.timeout.connect(self.onTrendTimer)
 
         self._alarmLineHigh = pg.InfiniteLine(pos=self._alarmHigh, angle=0, movable=False,
-                                              pen=pg.mkPen('r', width=1, style=QtCore.Qt.DashLine))
+                                              pen=pg.mkPen('r', width=2, style=QtCore.Qt.DashLine))
         self._alarmLineLow = pg.InfiniteLine(pos=self._alarmLow, angle=0, movable=False,
-                                             pen=pg.mkPen('r', width=1, style=QtCore.Qt.DashLine))
+                                             pen=pg.mkPen('r', width=2, style=QtCore.Qt.DashLine))
         self._trendVB.addItem(self._alarmLineHigh)
         self._trendVB.addItem(self._alarmLineLow)
         self._alarmLineHigh.setVisible(self._alarmEnabled)
@@ -236,21 +239,13 @@ class ScrollingScope(pg.PlotItem):
         self._bottomAxis.setZValue(0)
         self._rightAxis.setZValue(0)
 
+    # noinspection PyUnusedLocal
     def mouseDoubleClickEvent(self, ev):
         if self._alarmEnabled and self._alarmTripped:
             if self._alarmMuted:
                 self.unmuteAlarm()
             else:
                 self.muteAlarm()
-
-    @staticmethod
-    def mouseClickEvent(ev):
-        # this is what happens when the user clicks ont the plot.
-        # for the moment, we're just intercepting the right-clicks events and doing nothing
-        # (to prevent the menu from appearing)
-        # logging.debug("in mouseClickEvent(%s)" % ev)
-        if ev.button() == QtCore.Qt.RightButton:
-            ev.ignore()
 
     @staticmethod
     def _selectTrendFunction(functionName):
@@ -289,8 +284,13 @@ class ScrollingScope(pg.PlotItem):
     def alarmEnabled(self, value):
         # logging.debug("in alarmEnabled: setting value to: %s" % value)
         self._alarmEnabled = value
+        self._alarmLineHigh.setVisible(self._alarmEnabled)
+        self._alarmLineLow.setVisible(self._alarmEnabled)
         if self._alarmTripped and not value:
             self.resetAlarm()
+
+    def _menuToggleAlarm(self, state):
+        self.alarmEnabled = state
 
     @property
     def alarmHigh(self):
@@ -298,6 +298,7 @@ class ScrollingScope(pg.PlotItem):
 
     @alarmHigh.setter
     def alarmHigh(self, value):
+        # logging.debug("Setting alarm high threshold to %.2f", value)
         self._alarmHigh = value
         self._alarmLineHigh.setPos(self._alarmHigh)
 
@@ -307,8 +308,15 @@ class ScrollingScope(pg.PlotItem):
 
     @alarmLow.setter
     def alarmLow(self, value):
+        # logging.debug("Setting alarm low threshold to %.2f", value)
         self._alarmLow = value
         self._alarmLineLow.setPos(self._alarmLow)
+
+    def _menuSetAlarmLow(self, value):
+        self.alarmLow = value
+
+    def _menuSetAlarmHigh(self, value):
+        self.alarmHigh = value
 
     def tripAlarm(self):
         if self.alarmEnabled:
@@ -343,6 +351,50 @@ class ScrollingScope(pg.PlotItem):
                 self._alarmSound.play(-1)
                 self._alarmMuted = False
                 self._muteButton.setVisible(False)
+
+    def _createMenu(self):
+        self.vb.menu = QMenu()
+        self.vb.menuAlarm = QMenu('Alarm')
+        # noinspection PyArgumentList
+        self.vb.menuAlarmEnabled = QAction('Alarm enabled', self.vb.menuAlarm, checkable=True)
+        self.vb.menuAlarm.addAction(self.vb.menuAlarmEnabled)
+        if self.alarmEnabled:
+            self.vb.menuAlarmEnabled.setChecked(True)
+        self.vb.menuAlarmEnabled.toggled.connect(self._menuToggleAlarm)
+        self.vb.menuAlarmLimits = menuAlarmLimitsAction(lo=self.alarmLow, hi=self.alarmHigh, units=self._trendUnits)
+        self.vb.menuAlarmLimits.alarmLo.valueChanged.connect(self._menuSetAlarmLow)
+        self.vb.menuAlarmLimits.alarmHi.valueChanged.connect(self._menuSetAlarmHigh)
+        self.vb.menuAlarm.addAction(self.vb.menuAlarmLimits)
+        self.vb.menu.addMenu(self.vb.menuAlarm)
+        return self.vb.menu
+
+    def _raiseContextMenu(self, ev):
+        menu = self._createMenu()
+        pos = ev.screenPos()
+        menu.popup(QtCore.QPoint(pos.x(), pos.y()))
+
+
+class menuAlarmLimitsAction(QWidgetAction):
+    def __init__(self, parent=None, lo=0.0, hi=0.0, units=''):
+        super().__init__(parent)
+        w = QWidget()
+        layout = QFormLayout(w)
+        layout.setContentsMargins(12, 0, 0, 0)
+        layout.setSpacing(0)
+        self.alarmLo = QDoubleSpinBox()
+        self.alarmLo.setMinimum(0.0)
+        self.alarmLo.setMaximum(float('inf'))
+        self.alarmLo.setValue(lo)
+        self.alarmLo.setSuffix('' if len(units) == 0 else ' ' + units)
+        self.alarmHi = QDoubleSpinBox()
+        self.alarmHi.setMinimum(0.0)
+        self.alarmHi.setMaximum(float('inf'))
+        self.alarmHi.setValue(hi)
+        self.alarmHi.setSuffix('' if len(units) == 0 else ' ' + units)
+        layout.addRow("High threshold", self.alarmHi)
+        layout.addRow("Low threshold", self.alarmLo)
+        w.setLayout(layout)
+        self.setDefaultWidget(w)
 
 
 class PagedScope(ScrollingScope):
@@ -458,15 +510,15 @@ class PagedScope(ScrollingScope):
             pointsLeft = N - pointsToAdd
             temp = np.concatenate([self._buffer, chunk[:pointsToAdd]])
             # create a new remanent curve
-            l = self.plot(x=self._xArray, y=temp)
-            l.setPen(color=self._linecolor, width=self._linewidth / 2)
-            self._remanCurves.append(l)
+            curve = self.plot(x=self._xArray, y=temp)
+            curve.setPen(color=self._linecolor, width=self._linewidth / 2)
+            self._remanCurves.append(curve)
             nCurves = len(self._remanCurves)
-            for i, l in enumerate(self._remanCurves):
-                l.setZValue(i)
+            for i, curve in enumerate(self._remanCurves):
+                curve.setZValue(i)
                 alpha = 1.0 - (i + 1) * 1.0 / (nCurves + 1)
-                l.setPen(self._linecolor)
-                l.setAlpha(alpha, alpha)
+                curve.setPen(self._linecolor)
+                curve.setAlpha(alpha, alpha)
 
             if len(self._remanCurves) > self._remanence:
                 curveToDelete = self._remanCurves.popleft()

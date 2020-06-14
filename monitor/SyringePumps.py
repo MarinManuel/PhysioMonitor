@@ -164,9 +164,8 @@ class unforseenException(SyringePumpException):
 
 
 class DummyPump(SyringePump):
-    def __init__(self, inPort, inBaudRate):
-        self.port = inPort
-        self.baud = inBaudRate
+    def __init__(self, serialport):
+        self.serial = serialport
         self.currState = 0
         self.nextState = 1
         self.currDiameter = 10
@@ -303,18 +302,12 @@ class Model11plusPump(SyringePump):
     __CMD_GET_TARGET = 'TAR\r'
     __CMD_QUIT_REMOTE = 'KEY\r'
 
-    def __init__(self, inPort=0, inBaudRate=9600):
-        self.port = inPort
-        self.baudRate = inBaudRate
-
-        self.serial = None
-        self.serial = serial.Serial(self.port, self.baudRate,
-                                    bytesize=serial.EIGHTBITS, parity=serial.PARITY_NONE,
-                                    stopbits=serial.STOPBITS_TWO,
-                                    timeout=0)
-        self.serial.flush()
-        self.serial.flushInput()
-        self.serial.flushOutput()
+    def __init__(self, serialport):
+        self.serial = serialport
+        if serialport is not None:
+            self.serial.flush()
+            self.serial.flushInput()
+            self.serial.flushOutput()
         self.currUnits = 0
 
     def __del__(self):
@@ -578,19 +571,14 @@ class AladdinPump(SyringePump):
     __CMD_SET_TTLIO = 'OUT5%s\r'  # set ttl level of TTL I/O connector pin 5
     __CMD_SET_BUZZ = 'BUZ%d%d\r'  # sets whether buzzer is buzzing
 
-    def __init__(self, inPort=0, inBaudRate=19200, inAddress=0):
-        self.port = inPort
-        self.baudRate = inBaudRate
-        self.address = inAddress
+    def __init__(self, serialport, address=0):
+        self.address = address
         self.ansParser = re.compile(self.__ANS_PATTERN)
-        self.serial = None
-        self.serial = serial.Serial(self.port, self.baudRate,
-                                    bytesize=serial.EIGHTBITS, parity=serial.PARITY_NONE,
-                                    stopbits=serial.STOPBITS_TWO,
-                                    timeout=0)
-        self.serial.flush()
-        self.serial.flushInput()
-        self.serial.flushOutput()
+        self.serial = serialport
+        if serial is not None:
+            self.serial.flush()
+            self.serial.flushInput()
+            self.serial.flushOutput()
 
     def __del__(self):
         if self.serial is not None:

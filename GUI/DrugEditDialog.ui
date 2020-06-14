@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>324</width>
-    <height>193</height>
+    <height>226</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -18,24 +18,11 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <layout class="QFormLayout" name="formLayout">
-     <property name="fieldGrowthPolicy">
-      <enum>QFormLayout::ExpandingFieldsGrow</enum>
-     </property>
-     <item row="0" column="0">
-      <widget class="QLabel" name="drugNameLabel">
+    <layout class="QGridLayout" name="gridLayout">
+     <item row="3" column="0">
+      <widget class="QLabel" name="volumeToInjectionLabel">
        <property name="text">
-        <string>Drug name</string>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="1">
-      <widget class="QLineEdit" name="drugNameLineEdit"/>
-     </item>
-     <item row="1" column="0">
-      <widget class="QLabel" name="drugDoseLabel">
-       <property name="text">
-        <string>Dose</string>
+        <string>Volume to injection</string>
        </property>
       </widget>
      </item>
@@ -65,29 +52,6 @@
        </property>
       </widget>
      </item>
-     <item row="2" column="1">
-      <widget class="QDoubleSpinBox" name="drugConcentrationSpinBox">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-       <property name="suffix">
-        <string> mg/mL</string>
-       </property>
-       <property name="singleStep">
-        <double>0.100000000000000</double>
-       </property>
-      </widget>
-     </item>
-     <item row="3" column="0">
-      <widget class="QLabel" name="volumeToInjectionLabel">
-       <property name="text">
-        <string>Volume to injection</string>
-       </property>
-      </widget>
-     </item>
      <item row="3" column="1">
       <widget class="QSpinBox" name="drugVolumeSpinBox">
        <property name="sizePolicy">
@@ -107,6 +71,63 @@
        </property>
       </widget>
      </item>
+     <item row="0" column="0">
+      <widget class="QLabel" name="drugNameLabel">
+       <property name="text">
+        <string>Drug name</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="0">
+      <widget class="QLabel" name="drugDoseLabel">
+       <property name="text">
+        <string>Dose</string>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="1">
+      <widget class="QDoubleSpinBox" name="drugConcentrationSpinBox">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="suffix">
+        <string> mg/mL</string>
+       </property>
+       <property name="singleStep">
+        <double>0.100000000000000</double>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="1">
+      <widget class="QLineEdit" name="drugNameLineEdit"/>
+     </item>
+     <item row="4" column="0">
+      <widget class="QCheckBox" name="usePumpCheckBox">
+       <property name="toolTip">
+        <string>Check this box if this drug is injected using a syringe pump</string>
+       </property>
+       <property name="text">
+        <string>use syringe pump</string>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="1">
+      <widget class="QSpinBox" name="pumpIdSpinBox">
+       <property name="toolTip">
+        <string>Index of the pump to use for this drug
+(refer to configuration file)</string>
+       </property>
+       <property name="minimum">
+        <number>1</number>
+       </property>
+       <property name="maximum">
+        <number>100</number>
+       </property>
+      </widget>
+     </item>
     </layout>
    </item>
    <item>
@@ -121,6 +142,14 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>drugNameLineEdit</tabstop>
+  <tabstop>drugDoseSpinBox</tabstop>
+  <tabstop>drugConcentrationSpinBox</tabstop>
+  <tabstop>drugVolumeSpinBox</tabstop>
+  <tabstop>usePumpCheckBox</tabstop>
+  <tabstop>pumpIdSpinBox</tabstop>
+ </tabstops>
  <resources/>
  <connections>
   <connection>
