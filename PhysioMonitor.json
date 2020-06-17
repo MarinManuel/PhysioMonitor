@@ -139,14 +139,6 @@
       "parity": "N",
       "stop-bits": 1,
       "timeout": 0
-    },
-    {
-      "port": "COM2",
-      "baud-rate": 9600,
-      "byte-size": 8,
-      "parity": "N",
-      "stop-bits": 1,
-      "timeout": 0
     }
   ],
   "pumps": [

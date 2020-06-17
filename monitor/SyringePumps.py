@@ -164,7 +164,7 @@ class unforseenException(SyringePumpException):
 
 
 class DummyPump(SyringePump):
-    def __init__(self, serialport):
+    def __init__(self, serialport: serial.Serial):
         self.serial = serialport
         self.currState = 0
         self.nextState = 1
@@ -178,10 +178,9 @@ class DummyPump(SyringePump):
     def getInfo(self):
         retVal = '''fake pump on serial port %s (%s baud)
         syringe diameter: %.2f
-        current rate: %.2f %s
-        current state: ''' % (self.port,
-                              self.baud, self.getDiameter(), self.getRate(),
-                              self.getTextualUnits())
+        current rate: %.2f
+        current state: ''' % (self.serial.port,
+                              self.serial.baudrate, self.getDiameter(), self.getRate())
         if self.isRunning():
             if self.getDirection() == 1:
                 retVal += 'Infusing...'

@@ -534,6 +534,10 @@ class DrugPumpPanel(DrugPanel):
         self._halfDoseButton.setIcon(self.style().standardIcon(QStyle.SP_MediaSkipForward))
         self._halfDoseButton.setFixedSize(half_size)
 
+    def doInjectDrug(self, volume):
+        super().doInjectDrug(volume)
+        self.pump.setDirection()
+
 
 class PhysioMonitorMainScreen(QFrame):
     def __init__(self, config):
@@ -605,7 +609,7 @@ class PhysioMonitorMainScreen(QFrame):
         self.drugPanelsLayout.setSpacing(0)
         for i, drug in enumerate(config['drug-list']):
             if drug.pump is not None:
-                panel = DrugPumpPanel(None, drug.name, drug.volume, pump=None,  # FIXME pump=self.pumps[drug.pump],
+                panel = DrugPumpPanel(None, drug.name, drug.volume, pump=self.pumps[drug.pump],
                                       alarmSoundFile='./media/beep3x6.wav', logFile=self.logFile)
             else:
                 panel = DrugPanel(None, drug.name, drug.volume,
