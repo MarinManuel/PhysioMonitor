@@ -1,6 +1,12 @@
 import re
+from enum import IntEnum
+
 import serial
 import time
+
+# bolus injection done at 1 mL/min
+BOLUS_RATE = 1.0
+BOLUS_RATE_UNITS = 1
 
 
 class SyringePump(object):
@@ -8,8 +14,12 @@ class SyringePump(object):
     This is an abstract class that declares the functions available
     to control a syringe pump of any brand
     """
-    _units = ['mL/hr', 'mL/min', 'uL/hr', 'uL/min']
-    _directions = ['STOP', 'INFUSION', 'WITHDRAWAL']
+    UNITS = ['mL/hr', 'mL/min', 'uL/hr', 'uL/min']
+
+    class STATE(IntEnum):
+        STOPPED = 0
+        INFUSING = 1
+        WITHDRAWING = 2
 
     def __init__(self):
         """
@@ -225,7 +235,7 @@ class DummyPump(SyringePump):
         pass
 
     def setDirection(self, inValue):
-        if 0 < inValue <= (len(self._directions) - 1):
+        if 0 < inValue <= (len(self.DIRECTIONS) - 1):
             if self.isRunning():
                 self.currState = inValue
             else:
@@ -242,8 +252,8 @@ class DummyPump(SyringePump):
     def setRate(self, inValue, inUnits):
         if inValue <= 0:
             raise valueOORException("Rate must be a positive value")
-        if inUnits < 0 or inUnits > (len(self._units) - 1):
-            raise valueOORException("Units must be an integer between %d and %d" % (0, len(self._units) - 1))
+        if inUnits < 0 or inUnits > (len(self.UNITS) - 1):
+            raise valueOORException("Units must be an integer between %d and %d" % (0, len(self.UNITS) - 1))
         self.currUnits = inValue
         self.currRate = inValue
 
@@ -272,7 +282,7 @@ class DummyPump(SyringePump):
             return self.nextState
 
     def getPossibleUnits(self):
-        return self._units
+        return self.UNITS
 
 
 class Model11plusPump(SyringePump):
@@ -383,8 +393,8 @@ class Model11plusPump(SyringePump):
     def setRate(self, inValue, inUnits):
         if inValue <= 0:
             raise valueOORException("Rate must be a positive value")
-        if inUnits < 0 or (inUnits > len(self._units) - 1):
-            raise valueOORException("Units must be an integer between %d and %d" % (0, len(self._units) - 1))
+        if inUnits < 0 or (inUnits > len(self.UNITS) - 1):
+            raise valueOORException("Units must be an integer between %d and %d" % (0, len(self.UNITS) - 1))
         self.sendCommand((self.__CMD_SET_RATE[self.currUnits]) % inValue)  # FIXME: this needs fixin'
 
     def setTargetVolume(self, inValue):
@@ -467,8 +477,6 @@ class Model11plusPump(SyringePump):
 
 
 class AladdinPump(SyringePump):
-    _units = ['mL/hr', 'mL/min', 'uL/hr', 'uL/min']
-    _directions = ['STOP', 'INFUSION', 'WITHDRAWAL']
     _readTimeout = 1  # second
     # ******* PUMP ANSWERS ******
     __ANS_TRUE = '1'
@@ -587,11 +595,12 @@ class AladdinPump(SyringePump):
         version = self.getVersion()
         diameter = self.getDiameter()
         rate = self.getRate()
-        units = self._units[self.getUnits()]
+        units = self.UNITS[self.getUnits()]
         target = self.getTargetVolume()
         volume = self.getAccumulatedVolume()
-        direction = self._directions[self.getDirection()]
-        return "Syringe Pump %s (%s) {direction: %s, diameter: %04f mm, rate: %04f %s, accumulated volume: %04f, target volume: %04f}" \
+        direction = self.getDirection().name
+        return "Syringe Pump %s (%s) {direction: %s, diameter: %04f mm, rate: %04f %s, accumulated volume: %04f, " \
+               "target volume: %04f}" \
                % (version, port, direction, diameter, rate, units, volume, target)
 
     def sendCommand(self, inCommand, returnAll=False):
@@ -661,9 +670,9 @@ class AladdinPump(SyringePump):
         self.sendCommand(self.__CMD_SET_TARVOL % 0.0)
 
     def setDirection(self, inValue):
-        if inValue == 1:
+        if inValue == self.STATE.INFUSING:
             self.sendCommand(self.__CMD_SET_DIR % self.__ANS_DIR_INF)
-        elif inValue == 2:
+        elif inValue == self.STATE.WITHDRAWING:
             self.sendCommand(self.__CMD_SET_DIR % self.__ANS_DIR_WDR)
         else:
             raise invalidCommandException()
@@ -677,8 +686,8 @@ class AladdinPump(SyringePump):
     def setRate(self, inValue, inUnits):
         if inValue <= 0:
             raise valueOORException("Rate must be a positive value")
-        if inUnits < 0 or inUnits > len(self._units) - 1:
-            raise valueOORException("Units must be an integer between %d and %d" % (0, len(self._units) - 1))
+        if inUnits < 0 or inUnits > len(self.UNITS) - 1:
+            raise valueOORException("Units must be an integer between %d and %d" % (0, len(self.UNITS) - 1))
         ans = self.sendCommand(self.__CMD_SET_RATE % (inValue, self.__ANS_UNITS[int(inUnits)]))
         if '?' in ans:
             raise invalidCommandException(ans)
@@ -738,16 +747,16 @@ class AladdinPump(SyringePump):
         if self.isRunning():
             ans = self.sendCommand(self.__CMD_GET_DIR)
             if ans == self.__ANS_DIR_INF:
-                return 1
+                return self.STATE.INFUSING
             elif ans == self.__ANS_DIR_WDR:
-                return 2
+                return self.STATE.WITHDRAWING
             else:
                 return LookupError('Error while parsing direction')
         else:
-            return 0
+            return self.STATE.STOPPED
 
     def getPossibleUnits(self):
-        return self._units
+        return self.UNITS
 
     def getVersion(self):
         ans = self.sendCommand(self.__CMD_GET_VERSION)

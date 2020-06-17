@@ -2,6 +2,7 @@ import datetime
 import json
 import logging
 import os
+import threading
 
 import pygame
 import serial
@@ -516,6 +517,8 @@ class DrugPumpPanel(DrugPanel):
         self._perfRateSpinBox = QDoubleSpinBox()
         self._perfRateUnitsComboBox = QComboBox()
         self._perfStartButton = QPushButton("Start Perf")
+        self._perfStartButton.setCheckable(True)
+        self._perfStartButton.clicked.connect(self.togglePerf)
         box = QHBoxLayout()
         box.addWidget(self._perfRateSpinBox)
         box.addWidget(self._perfRateUnitsComboBox)
@@ -523,9 +526,18 @@ class DrugPumpPanel(DrugPanel):
         self.layout().insertLayout(1, box)
 
         self._perfRateUnitsComboBox.addItems(self.pump.getPossibleUnits())
+        self.updateFromPump()
 
-    def update(self):
-        super().update()
+    def togglePerf(self):
+        if self.pump.isRunning():
+            self.pump.stop()
+        else:
+            self.pump.setRate(self._perfRateSpinBox.value(), self._perfRateUnitsComboBox.currentIndex())
+            self.pump.clearTargetVolume()
+            self.pump.start()
+        self.updateFromPump()
+
+    def updateFromPump(self):
         currRate = self.pump.getRate()
         currUnits = self.pump.getUnits()
         currDir = self.pump.getDirection()
@@ -533,8 +545,10 @@ class DrugPumpPanel(DrugPanel):
         self._perfRateUnitsComboBox.setCurrentIndex(currUnits)
         if currDir != 0:
             self._perfStartButton.setChecked(True)
+            self.enablePerfusionButtons(False)
         else:
             self._perfStartButton.setChecked(False)
+            self.enablePerfusionButtons(True)
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -549,8 +563,49 @@ class DrugPumpPanel(DrugPanel):
         self._halfDoseButton.setFixedSize(half_size)
 
     def doInjectDrug(self, volume):
+        # in case the pump is currently infusing, we store the current values to restore after the
+        # end of the injection
+        currRate = self.pump.getRate()
+        currDir = self.pump.getDirection()
+        currUnits = self.pump.getUnits()
+
+        if self.pump.isRunning():
+            self.pump.stop()
+        self.pump.setDirection(self.pump.STATE.INFUSING)
+        self.pump.setRate(SyringePumps.BOLUS_RATE, SyringePumps.BOLUS_RATE_UNITS)
+        self.pump.setTargetVolume(volume / 1000)  # volume is in uL but TargetVolume is in mL
+        self.pump.start()
+
+        # disable buttons to avoid double injections, and start a thread to wait for the injection
+        # to finish
+        self.enableInjectButtons(False)
+        th = threading.Thread(target=self.waitForEndOfInjection, args=(currRate, currUnits, currDir))
+        th.start()
+
         super().doInjectDrug(volume)
-        self.pump.setDirection()
+
+    def enableInjectButtons(self, enabled: bool):
+        self._fullDoseButton.setEnabled(enabled)
+        self._halfDoseButton.setEnabled(enabled)
+        self._customDoseButton.setEnabled(enabled)
+
+    def enablePerfusionButtons(self, enabled: bool):
+        self._perfRateSpinBox.setEnabled(enabled)
+        self._perfRateUnitsComboBox.setEnabled(enabled)
+
+    def waitForEndOfInjection(self, restoreRate, restoreUnits, restoreDir):
+        # logger.debug("in waitForEndofInjection()")
+        while self.pump.isRunning():
+            pass
+            # logger.debug('pump is still running')
+        # logger.debug('pump is finished pumping')
+        self.enableInjectButtons(True)
+        # logger.debug("restoring previous pump state")
+        self.pump.setRate(restoreRate, restoreUnits)
+        if restoreDir != 0:
+            self.pump.setDirection(restoreDir)
+            self.pump.start()
+        self.updateFromPump()
 
 
 class PhysioMonitorMainScreen(QFrame):
@@ -623,7 +678,8 @@ class PhysioMonitorMainScreen(QFrame):
         self.drugPanelsLayout.setSpacing(0)
         for i, drug in enumerate(config['drug-list']):
             if drug.pump is not None:
-                panel = DrugPumpPanel(None, drug.name, drug.volume, pump=self.pumps[drug.pump-1], #FIXME should pumps be zero indexed?
+                panel = DrugPumpPanel(None, drug.name, drug.volume, pump=self.pumps[drug.pump - 1],
+                                      # FIXME should pumps be zero indexed?
                                       alarmSoundFile='./media/beep3x6.wav', logFile=self.logFile)
             else:
                 panel = DrugPanel(None, drug.name, drug.volume,
