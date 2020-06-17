@@ -580,12 +580,7 @@ class AladdinPump(SyringePump):
             self.serial.flushOutput()
 
     def __del__(self):
-        if self.serial is not None:
-            self.sendCommand(self.__CMD_SET_BUZZ % (1, 1))
-            self.serial.flush()
-            self.serial.flushInput()
-            self.serial.flushOutput()
-            self.serial.close()
+        pass
 
     def getInfo(self):
         port = self.serial.portstr
@@ -604,14 +599,14 @@ class AladdinPump(SyringePump):
         self.serial.flushInput()
         self.serial.flushOutput()
         # logging.debug("~~sending command \"%02d%s\"..." % (self.address, inCommand.replace('\r', '\\r')))
-        self.serial.write(inCommand)
+        self.serial.write(inCommand.encode())
         sendTime = time.time()
         ans = ''
         nbBytes = 0
         while ans[-1:] != '\x03':
             nbChar = self.serial.inWaiting()
             nbBytes += nbChar
-            ans += str(self.serial.read(nbChar))
+            ans += self.serial.read(nbChar).decode()
             if (time.time() - sendTime) > self._readTimeout:
                 raise readTimeoutException("Timeout while waiting for an answer")
         self.serial.flush()

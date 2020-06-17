@@ -522,6 +522,20 @@ class DrugPumpPanel(DrugPanel):
         box.addWidget(self._perfStartButton)
         self.layout().insertLayout(1, box)
 
+        self._perfRateUnitsComboBox.addItems(self.pump.getPossibleUnits())
+
+    def update(self):
+        super().update()
+        currRate = self.pump.getRate()
+        currUnits = self.pump.getUnits()
+        currDir = self.pump.getDirection()
+        self._perfRateSpinBox.setValue(currRate)
+        self._perfRateUnitsComboBox.setCurrentIndex(currUnits)
+        if currDir != 0:
+            self._perfStartButton.setChecked(True)
+        else:
+            self._perfStartButton.setChecked(False)
+
     def showEvent(self, event):
         super().showEvent(event)
         # this code adds an icon to the button to distinguish them from the "manual" drug panel buttons
@@ -609,7 +623,7 @@ class PhysioMonitorMainScreen(QFrame):
         self.drugPanelsLayout.setSpacing(0)
         for i, drug in enumerate(config['drug-list']):
             if drug.pump is not None:
-                panel = DrugPumpPanel(None, drug.name, drug.volume, pump=self.pumps[drug.pump],
+                panel = DrugPumpPanel(None, drug.name, drug.volume, pump=self.pumps[drug.pump-1], #FIXME should pumps be zero indexed?
                                       alarmSoundFile='./media/beep3x6.wav', logFile=self.logFile)
             else:
                 panel = DrugPanel(None, drug.name, drug.volume,

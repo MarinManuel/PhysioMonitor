@@ -133,8 +133,8 @@
   },
   "serial-ports": [
     {
-      "port": "COM1",
-      "baud-rate": 9600,
+      "port": "/dev/ttyS0",
+      "baud-rate": 19200,
       "byte-size": 8,
       "parity": "N",
       "stop-bits": 1,
@@ -143,7 +143,7 @@
   ],
   "pumps": [
     {
-      "model": "dummy",
+      "model": "aladdin",
       "serial-port": 0,
       "address": 0
     }
