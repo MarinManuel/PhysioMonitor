@@ -1,3 +1,4 @@
+import logging
 import re
 from enum import IntEnum
 
@@ -334,7 +335,7 @@ class Model11plusPump(SyringePump):
         self.serial.flush()
         self.serial.flushInput()
         self.serial.flushOutput()
-        # logging.debug("sending command \"%s\"..." % inCommand)
+        logging.debug("sending command \"%s\"..." % inCommand)
         self.serial.write(inCommand)
         time.sleep(0.3)
         nbChar = self.serial.inWaiting()
@@ -607,7 +608,7 @@ class AladdinPump(SyringePump):
         self.serial.flush()
         self.serial.flushInput()
         self.serial.flushOutput()
-        # logging.debug("~~sending command \"%02d%s\"..." % (self.address, inCommand.replace('\r', '\\r')))
+        logging.debug("~~sending command \"%02d%s\"..." % (self.address, inCommand.replace('\r', '\\r')))
         self.serial.write(inCommand.encode())
         sendTime = time.time()
         ans = ''
@@ -621,12 +622,17 @@ class AladdinPump(SyringePump):
         self.serial.flush()
         self.serial.flushInput()
         self.serial.flushOutput()
-        # logging.debug("~~reading %d bytes in response: \"%s\"" % (nbBytes, repr(ans)))
+        logging.debug("~~reading %d bytes in response: \"%s\"" % (nbBytes, repr(ans)))
         address, status, message = self.parse(ans)
         if 'A?' in status:
             raise alarmException(status)
         if '?' in message:
-            raise errorException(message)
+            if '?OOR' in message:
+                raise valueOORException(message)
+            elif '?NA' in message:
+                raise invalidCommandException(message)
+            else:
+                raise unforseenException(message)
         if returnAll:
             return address, status, message
         else:
@@ -636,7 +642,7 @@ class AladdinPump(SyringePump):
         m = self.ansParser.match(inVal)
         if not m:
             raise pumpInvalidAnswerException
-        # logging.debug("~~received valid answer from pump [%02s]. Status is '%s' and answer is '%s'" % m.groups())
+        logging.debug("~~received valid answer from pump [%02s]. Status is '%s' and answer is '%s'" % m.groups())
         return m.groups()
 
     def start(self):

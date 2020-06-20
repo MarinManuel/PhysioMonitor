@@ -503,6 +503,8 @@ class DrugPumpPanel(DrugPanel):
     def __init__(self, parent, drugName, drugVolume, pump: SyringePumps.SyringePump, alarmSoundFile=None, logFile=None):
         drugVolume = float(drugVolume)
         super().__init__(parent, drugName, drugVolume, alarmSoundFile, logFile)
+        self._START_PERF_FORMAT = "{time}\t>> Start perf ({rate:2.f} {units})\t{drugName}\n"
+        self._STOP_PERF_FORMAT = "{time}\t<< End perf\t{drugName}\n"
         self.pump = pump
         self.setStyleSheet(self.styleSheet() + """
             QGroupBox {
@@ -518,7 +520,7 @@ class DrugPumpPanel(DrugPanel):
         self._perfRateUnitsComboBox = QComboBox()
         self._perfStartButton = QPushButton("Start Perf")
         self._perfStartButton.setCheckable(True)
-        self._perfStartButton.clicked.connect(self.togglePerf)
+        self._perfStartButton.clicked.connect(self.onTogglePerf)
         box = QHBoxLayout()
         box.addWidget(self._perfRateSpinBox)
         box.addWidget(self._perfRateUnitsComboBox)
@@ -528,13 +530,19 @@ class DrugPumpPanel(DrugPanel):
         self._perfRateUnitsComboBox.addItems(self.pump.getPossibleUnits())
         self.updateFromPump()
 
-    def togglePerf(self):
+    def onTogglePerf(self):
+        currTime = datetime.datetime.now().strftime("%H:%M:%S")
         if self.pump.isRunning():
             self.pump.stop()
+            self._logFile.append(self._STOP_PERF_FORMAT.format(time=currTime, drugName=self._drugName))
         else:
             self.pump.setRate(self._perfRateSpinBox.value(), self._perfRateUnitsComboBox.currentIndex())
             self.pump.clearTargetVolume()
             self.pump.start()
+            self._logFile.append(self._START_PERF_FORMAT.format(time=currTime,
+                                                                drugName=self._drugName,
+                                                                rate=self._perfRateSpinBox.value(),
+                                                                units=self._perfRateUnitsComboBox.currentText()))
         self.updateFromPump()
 
     def updateFromPump(self):
@@ -569,20 +577,22 @@ class DrugPumpPanel(DrugPanel):
         currDir = self.pump.getDirection()
         currUnits = self.pump.getUnits()
 
-        if self.pump.isRunning():
-            self.pump.stop()
-        self.pump.setDirection(self.pump.STATE.INFUSING)
-        self.pump.setRate(SyringePumps.BOLUS_RATE, SyringePumps.BOLUS_RATE_UNITS)
-        self.pump.setTargetVolume(volume / 1000)  # volume is in uL but TargetVolume is in mL
-        self.pump.start()
-
-        # disable buttons to avoid double injections, and start a thread to wait for the injection
-        # to finish
-        self.enableInjectButtons(False)
-        th = threading.Thread(target=self.waitForEndOfInjection, args=(currRate, currUnits, currDir))
-        th.start()
-
-        super().doInjectDrug(volume)
+        try:
+            if self.pump.isRunning():
+                self.pump.stop()
+            self.pump.setDirection(self.pump.STATE.INFUSING)
+            self.pump.setRate(SyringePumps.BOLUS_RATE, SyringePumps.BOLUS_RATE_UNITS)
+            self.pump.setTargetVolume(volume / 1000)  # volume is in uL but TargetVolume is in mL
+            self.pump.start()
+            super().doInjectDrug(volume)
+        except SyringePumps.valueOORException:
+            QMessageBox.warning(None, "Value out of range", 'Cannot inject, value out of range')
+        finally:
+            # disable buttons to avoid double injections, and start a thread to wait for the injection
+            # to finish
+            self.enableInjectButtons(False)
+            th = threading.Thread(target=self.waitForEndOfInjection, args=(currRate, currUnits, currDir))
+            th.start()
 
     def enableInjectButtons(self, enabled: bool):
         self._fullDoseButton.setEnabled(enabled)
@@ -594,7 +604,7 @@ class DrugPumpPanel(DrugPanel):
         self._perfRateUnitsComboBox.setEnabled(enabled)
 
     def waitForEndOfInjection(self, restoreRate, restoreUnits, restoreDir):
-        # logger.debug("in waitForEndofInjection()")
+        # logger.debug("in waitForEndOfInjection()")
         while self.pump.isRunning():
             pass
             # logger.debug('pump is still running')
