@@ -561,8 +561,8 @@ class AladdinPump(SyringePump):
     __CMD_SET_PHASE = 'PHN%d\r'  # set the phase number
     __CMD_SET_PHASEFUNCTION = 'FUN%d\r'  # set the program's phase function
     # ... bunch of other instructions could be here. cf p50 of the manual
-    __CMD_SET_RATE = 'RAT%05.3f%s\r'  # set the rate of inf/withdr, including unit
-    __CMD_SET_TARVOL = 'VOL%05.3f\r'  # set target volume, units depends on diameter
+    __CMD_SET_RATE = 'RAT%s%s\r'  # set the rate of inf/withdr, including unit
+    __CMD_SET_TARVOL = 'VOL%sf\r'  # set target volume, units depends on diameter
     __CMD_SET_DIR = 'DIR%s\r'  # set the direction of the pump
     __CMD_SET_RUNPHASE = 'RUN%d\r'  # start the pumping program
     __CMD_SET_STOP = 'STP\r'  # stops the pump
@@ -578,6 +578,13 @@ class AladdinPump(SyringePump):
     __CMD_SET_KEYBEEP = 'BP%d\r'  # set keypad beep mode
     __CMD_SET_TTLIO = 'OUT5%s\r'  # set ttl level of TTL I/O connector pin 5
     __CMD_SET_BUZZ = 'BUZ%d%d\r'  # sets whether buzzer is buzzing
+
+    minVal = 0.001
+    maxVal = 9999
+
+    @staticmethod
+    def format_float(val):
+        return '{:05.3f}'.format(val)[:5]
 
     def __init__(self, serialport, address=0):
         self.address = address
@@ -687,14 +694,14 @@ class AladdinPump(SyringePump):
         if inValue <= 0:
             raise valueOORException("Diameter must be a positive float value")
         else:
-            self.sendCommand(self.__CMD_SET_DIAMETER % (float(inValue)))
+            self.sendCommand(self.__CMD_SET_DIAMETER % (self.format_float(inValue)))
 
     def setRate(self, inValue, inUnits):
         if inValue <= 0:
             raise valueOORException("Rate must be a positive value")
         if inUnits < 0 or inUnits > len(self.UNITS) - 1:
             raise valueOORException("Units must be an integer between %d and %d" % (0, len(self.UNITS) - 1))
-        ans = self.sendCommand(self.__CMD_SET_RATE % (inValue, self.__ANS_UNITS[int(inUnits)]))
+        ans = self.sendCommand(self.__CMD_SET_RATE % (self.format_float(inValue), self.__ANS_UNITS[int(inUnits)]))
         if '?' in ans:
             raise invalidCommandException(ans)
 
@@ -702,7 +709,7 @@ class AladdinPump(SyringePump):
         if inValue <= 0:
             raise valueOORException("Target volume must be a positive float value")
         else:
-            self.sendCommand(self.__CMD_SET_TARVOL % (float(inValue)))
+            self.sendCommand(self.__CMD_SET_TARVOL % (self.format_float(inValue)))
 
     def getDiameter(self):
         ans = self.sendCommand(self.__CMD_GET_DIAMETER)
