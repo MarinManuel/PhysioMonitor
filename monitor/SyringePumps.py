@@ -22,6 +22,9 @@ class SyringePump(object):
         INFUSING = 1
         WITHDRAWING = 2
 
+    minVal = 0.001
+    maxVal = 9999
+
     def __init__(self):
         """
         constructor
@@ -579,9 +582,6 @@ class AladdinPump(SyringePump):
     __CMD_SET_TTLIO = 'OUT5%s\r'  # set ttl level of TTL I/O connector pin 5
     __CMD_SET_BUZZ = 'BUZ%d%d\r'  # sets whether buzzer is buzzing
 
-    minVal = 0.001
-    maxVal = 9999
-
     @staticmethod
     def format_float(val):
         return '{:05.3f}'.format(val)[:5]
@@ -594,6 +594,8 @@ class AladdinPump(SyringePump):
             self.serial.flush()
             self.serial.flushInput()
             self.serial.flushOutput()
+        minVal = 0.001
+        maxVal = 9999
 
     def __del__(self):
         pass

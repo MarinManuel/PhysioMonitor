@@ -517,6 +517,8 @@ class DrugPumpPanel(DrugPanel):
         self.layout().addWidget(self._autoInjectCheckBox)
 
         self._perfRateSpinBox = QDoubleSpinBox()
+        self._perfRateSpinBox.setMinimum(self.pump.minVal)
+        self._perfRateSpinBox.setMaximum(self.pump.maxVal)
         self._perfRateUnitsComboBox = QComboBox()
         self._perfStartButton = QPushButton("Start Perf")
         self._perfStartButton.setCheckable(True)
