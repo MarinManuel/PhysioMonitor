@@ -565,7 +565,7 @@ class AladdinPump(SyringePump):
     __CMD_SET_PHASEFUNCTION = 'FUN%d\r'  # set the program's phase function
     # ... bunch of other instructions could be here. cf p50 of the manual
     __CMD_SET_RATE = 'RAT%s%s\r'  # set the rate of inf/withdr, including unit
-    __CMD_SET_TARVOL = 'VOL%sf\r'  # set target volume, units depends on diameter
+    __CMD_SET_TARVOL = 'VOL%s\r'  # set target volume, units depends on diameter
     __CMD_SET_DIR = 'DIR%s\r'  # set the direction of the pump
     __CMD_SET_RUNPHASE = 'RUN%d\r'  # start the pumping program
     __CMD_SET_STOP = 'STP\r'  # stops the pump

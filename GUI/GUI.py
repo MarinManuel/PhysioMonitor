@@ -138,6 +138,7 @@ class CustomDialog(QDialog):
         dlg = CustomDialog()
 
         spinBox = QDoubleSpinBox(parent)
+        spinBox.setDecimals(3)
         spinBox.setMinimum(minVal)
         spinBox.setMaximum(maxVal)
         spinBox.setValue(value)
@@ -503,7 +504,7 @@ class DrugPumpPanel(DrugPanel):
     def __init__(self, parent, drugName, drugVolume, pump: SyringePumps.SyringePump, alarmSoundFile=None, logFile=None):
         drugVolume = float(drugVolume)
         super().__init__(parent, drugName, drugVolume, alarmSoundFile, logFile)
-        self._START_PERF_FORMAT = "{time}\t>> Start perf ({rate:2.f} {units})\t{drugName}\n"
+        self._START_PERF_FORMAT = "{time}\t>> Start perf ({rate:.2f} {units})\t{drugName}\n"
         self._STOP_PERF_FORMAT = "{time}\t<< End perf\t{drugName}\n"
         self.pump = pump
         self.setStyleSheet(self.styleSheet() + """
@@ -511,23 +512,38 @@ class DrugPumpPanel(DrugPanel):
                 background-color: #C1C9E2;
             }
             """)
+
+        newTimer = PumpTimer(parent=self, pumpPanel=self, alarmSoundFile=alarmSoundFile)
+        self.layout().replaceWidget(self._timer, newTimer)
+        self._timer.deleteLater()
+        self._timer = newTimer
+
         self._autoInjectCheckBox = QCheckBox("Auto-inject")
         self._autoInjectCheckBox.setIcon(self.style().standardIcon(QStyle.SP_MediaSkipForward))
         self._autoInjectCheckBox.setStyle(IconProxyStyle(self._autoInjectCheckBox.style()))
+        self._autoInjectCheckBox.toggled.connect(self.onToggleAutoInject)
         self.layout().addWidget(self._autoInjectCheckBox)
 
         self._perfRateSpinBox = QDoubleSpinBox()
+        self._perfRateSpinBox.setDecimals(3)
         self._perfRateSpinBox.setMinimum(self.pump.minVal)
         self._perfRateSpinBox.setMaximum(self.pump.maxVal)
         self._perfRateUnitsComboBox = QComboBox()
         self._perfStartButton = QPushButton("Start Perf")
         self._perfStartButton.setCheckable(True)
         self._perfStartButton.clicked.connect(self.onTogglePerf)
+
+        self._abortInjectButton = QPushButton('Abort')
+        self._abortInjectButton.setIcon(self.style().standardIcon(QStyle.SP_BrowserStop))
+        self._abortInjectButton.setVisible(False)
+        self._abortInjectButton.clicked.connect(self.abortInjection)
+
         box = QHBoxLayout()
         box.addWidget(self._perfRateSpinBox)
         box.addWidget(self._perfRateUnitsComboBox)
         box.addWidget(self._perfStartButton)
-        self.layout().insertLayout(1, box)
+        self.layout().insertWidget(1, self._abortInjectButton)
+        self.layout().insertLayout(2, box)
 
         self._perfRateUnitsComboBox.addItems(self.pump.getPossibleUnits())
         self.updateFromPump()
@@ -538,14 +554,22 @@ class DrugPumpPanel(DrugPanel):
             self.pump.stop()
             self._logFile.append(self._STOP_PERF_FORMAT.format(time=currTime, drugName=self._drugName))
         else:
-            self.pump.setRate(self._perfRateSpinBox.value(), self._perfRateUnitsComboBox.currentIndex())
-            self.pump.clearTargetVolume()
-            self.pump.start()
-            self._logFile.append(self._START_PERF_FORMAT.format(time=currTime,
-                                                                drugName=self._drugName,
-                                                                rate=self._perfRateSpinBox.value(),
-                                                                units=self._perfRateUnitsComboBox.currentText()))
+            try:
+                self.pump.setRate(self._perfRateSpinBox.value(), self._perfRateUnitsComboBox.currentIndex())
+                self.pump.clearTargetVolume()
+                self.pump.start()
+                self._logFile.append(self._START_PERF_FORMAT.format(time=currTime,
+                                                                    drugName=self._drugName,
+                                                                    rate=self._perfRateSpinBox.value(),
+                                                                    units=self._perfRateUnitsComboBox.currentText()))
+            except SyringePumps.valueOORException:
+                # noinspection PyTypeChecker
+                QMessageBox.information(None, 'Value OOR', 'ERROR: value is out of range for pump')
+                self._perfRateSpinBox.setFocus()
         self.updateFromPump()
+
+    def onToggleAutoInject(self, checked):
+        self._timer.autoInject = checked
 
     def updateFromPump(self):
         currRate = self.pump.getRate()
@@ -567,6 +591,7 @@ class DrugPumpPanel(DrugPanel):
         # so we're saving their size before the icon, and restoring the original size after inserting the icon
         full_size = self._fullDoseButton.size()
         half_size = self._halfDoseButton.size()
+        cust_size = self._customDoseButton.size()
         self._fullDoseButton.setIcon(self.style().standardIcon(QStyle.SP_MediaSkipForward))
         self._fullDoseButton.setFixedSize(full_size)
         self._halfDoseButton.setIcon(self.style().standardIcon(QStyle.SP_MediaSkipForward))
@@ -588,6 +613,7 @@ class DrugPumpPanel(DrugPanel):
             self.pump.start()
             super().doInjectDrug(volume)
         except SyringePumps.valueOORException:
+            # noinspection PyTypeChecker
             QMessageBox.warning(None, "Value out of range", 'Cannot inject, value out of range')
         finally:
             # disable buttons to avoid double injections, and start a thread to wait for the injection
@@ -601,9 +627,16 @@ class DrugPumpPanel(DrugPanel):
         self._halfDoseButton.setEnabled(enabled)
         self._customDoseButton.setEnabled(enabled)
 
+        self._abortInjectButton.setVisible(not enabled)
+
     def enablePerfusionButtons(self, enabled: bool):
         self._perfRateSpinBox.setEnabled(enabled)
         self._perfRateUnitsComboBox.setEnabled(enabled)
+
+    def abortInjection(self, event):
+        if self.pump.isRunning():
+            self.pump.stop()
+        self.enableInjectButtons(True)
 
     def waitForEndOfInjection(self, restoreRate, restoreUnits, restoreDir):
         # logger.debug("in waitForEndOfInjection()")
@@ -618,6 +651,31 @@ class DrugPumpPanel(DrugPanel):
             self.pump.setDirection(restoreDir)
             self.pump.start()
         self.updateFromPump()
+
+    def onCustomDoseButtonClick(self, event):
+        val, ok = CustomDialog.getDouble(self, value=self._drugVolume, text="Enter custom amount (μL)",
+                                         minVal=0.001, maxVal=9999.)
+        if ok:
+            self.doInjectDrug(val)
+
+
+class PumpTimer(DrugTimer):
+    def __init__(self, parent, pumpPanel: DrugPumpPanel, alarmThresh=None, alarmSoundFile=None):
+        super().__init__(parent=parent, alarmThresh=alarmThresh, alarmSoundFile=alarmSoundFile)
+        self.pumpPanel = pumpPanel
+        self._autoInject = False
+
+    @property
+    def autoInject(self):
+        return self._autoInject
+
+    @autoInject.setter
+    def autoInject(self, value):
+        self._autoInject = value
+
+    def onAlarmTimer(self, event):
+        if self.autoInject:
+            self.pumpPanel.onFullDoseButtonClick(event)
 
 
 class PhysioMonitorMainScreen(QFrame):
