@@ -169,6 +169,10 @@ class pumpInvalidAnswerException(SyringePumpException):
     pass
 
 
+class syringeAlarmException(SyringePumpException):
+    pass
+
+
 class invalidCommandException(SyringePumpException):
     pass
 
@@ -178,6 +182,7 @@ class unforseenException(SyringePumpException):
 
 
 class DummyPump(SyringePump):
+    # noinspection PyMissingConstructor
     def __init__(self, serialport: serial.Serial):
         self.serial = serialport
         self.currState = 0
@@ -238,8 +243,8 @@ class DummyPump(SyringePump):
     def clearTargetVolume(self):
         pass
 
-    def setDirection(self, inValue):
-        if 0 < inValue <= (len(self.DIRECTIONS) - 1):
+    def setDirection(self, inValue: SyringePump.STATE):
+        if inValue in SyringePump.STATE:
             if self.isRunning():
                 self.currState = inValue
             else:
@@ -247,13 +252,13 @@ class DummyPump(SyringePump):
         else:
             raise unknownCommandException("direction should be either INFUSION or WITHDRAWAL")
 
-    def setSyringeDiameter(self, inValue):
+    def setSyringeDiameter(self, inValue: int):
         if inValue <= 0:
             raise valueOORException("Diameter must be a positive value")
         else:
             self.currDiameter = inValue
 
-    def setRate(self, inValue, inUnits):
+    def setRate(self, inValue: int, inUnits: int):
         if inValue <= 0:
             raise valueOORException("Rate must be a positive value")
         if inUnits < 0 or inUnits > (len(self.UNITS) - 1):
@@ -265,13 +270,13 @@ class DummyPump(SyringePump):
         pass
 
     def getDiameter(self):
-        return self.diameter
+        return self.currDiameter
 
     def getRate(self):
-        return self.rate
+        return self.currRate
 
     def getUnits(self):
-        return self.units
+        return self.currUnits
 
     def getAccumulatedVolume(self):
         return 0
@@ -315,6 +320,7 @@ class Model11plusPump(SyringePump):
     __CMD_GET_TARGET = 'TAR\r'
     __CMD_QUIT_REMOTE = 'KEY\r'
 
+    # noinspection PyMissingConstructor
     def __init__(self, serialport):
         self.serial = serialport
         if serialport is not None:
@@ -586,6 +592,7 @@ class AladdinPump(SyringePump):
     def format_float(val):
         return '{:05.3f}'.format(val)[:5]
 
+    # noinspection PyMissingConstructor
     def __init__(self, serialport, address=0):
         self.address = address
         self.ansParser = re.compile(self.__ANS_PATTERN)
@@ -594,8 +601,6 @@ class AladdinPump(SyringePump):
             self.serial.flush()
             self.serial.flushInput()
             self.serial.flushOutput()
-        minVal = 0.001
-        maxVal = 9999
 
     def __del__(self):
         pass
@@ -617,7 +622,7 @@ class AladdinPump(SyringePump):
         self.serial.flush()
         self.serial.flushInput()
         self.serial.flushOutput()
-        logging.debug("~~sending command \"%02d%s\"..." % (self.address, inCommand.replace('\r', '\\r')))
+        logging.debug(">>sending command \"%02d%s\"..." % (self.address, inCommand.replace('\r', '\\r')))
         self.serial.write(inCommand.encode())
         sendTime = time.time()
         ans = ''
@@ -631,7 +636,7 @@ class AladdinPump(SyringePump):
         self.serial.flush()
         self.serial.flushInput()
         self.serial.flushOutput()
-        logging.debug("~~reading %d bytes in response: \"%s\"" % (nbBytes, repr(ans)))
+        logging.debug("<<reading %d bytes in response: \"%s\"" % (nbBytes, repr(ans)))
         address, status, message = self.parse(ans)
         if 'A?' in status:
             raise alarmException(status)
@@ -649,24 +654,25 @@ class AladdinPump(SyringePump):
 
     def parse(self, inVal):
         m = self.ansParser.match(inVal)
-        if not m:
+        if m is None:
             raise pumpInvalidAnswerException
-        logging.debug("~~received valid answer from pump [%02s]. Status is '%s' and answer is '%s'" % m.groups())
+        # noinspection PyStringFormat
+        logging.debug("<<received valid answer from pump [%02s]. Status is '%s' and answer is '%s'" % m.groups())
         return m.groups()
 
     def start(self):
-        _, status, _ = self.sendCommand(self.__CMD_SET_RUNPHASE % (1), True)
+        _, status, _ = self.sendCommand(self.__CMD_SET_RUNPHASE % 1, True)
         if 'A?' in status:
-            self.alarm(status)
+            raise syringeAlarmException(status)
         if not ('I' in status or 'W' in status):
             raise unforseenException("Pump did not start!")
 
     def stop(self):
         _, status, _ = self.sendCommand(self.__CMD_SET_STOP, True)
         if 'A?' in status:
-            self.alarm(status)
+            raise aladdinAlarmException(status)
         if '?' in status:
-            self.error(status)
+            raise aladdinErrorException(status)
         if 'P' not in status:
             raise unforseenException("Pump did not stop")
 
@@ -719,7 +725,7 @@ class AladdinPump(SyringePump):
 
     def getRate(self):
         ans = self.sendCommand(self.__CMD_GET_RATE)
-        return float(ans[:-2])  # strips units
+        return float(ans[:-3])  # strips units
 
     def getUnits(self):
         ans = self.sendCommand(self.__CMD_GET_RATE)
@@ -779,13 +785,14 @@ class AladdinPump(SyringePump):
         if not m:
             raise unforseenException("Error while parsing version number")
         else:
-            return 'Model #%s, firmware v%s.%s' % (m.groups())
+            # noinspection PyStringFormat
+            return 'Model #%s, firmware v%s.%s' % m.groups()
 
     def doBeep(self, nbBeeps=1):
         self.sendCommand(self.__CMD_SET_BUZZ % (1, nbBeeps))
 
 
-class errorException(SyringePumpException):
+class aladdinErrorException(SyringePumpException):
     def __init__(self, status):
         if status == '?COM':
             Exception.__init__(self, "Invalid communications packet received")
@@ -807,3 +814,19 @@ class alarmException(SyringePumpException):
 
 class readTimeoutException(SyringePumpException):
     pass
+
+
+class aladdinAlarmException(SyringePumpException):
+    def __init__(self, status):
+        if status == 'A?R':
+            Exception.__init__(self, "Pump was reset")
+        elif status == 'A?S':
+            Exception.__init__(self, "Pump motor stalled")
+        elif status == 'A?T':
+            Exception.__init__(self, "Safe mode communications time out")
+        elif status == 'A?E':
+            Exception.__init__(self, "Pumping program error")
+        elif status == 'A?O':
+            Exception.__init__(self, "Pumping program phase is out of range")
+        else:
+            Exception.__init__(self, status)

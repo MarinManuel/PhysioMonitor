@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import threading
+import time
 
 import pygame
 import serial
@@ -18,8 +19,10 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QDialog, QDoubleSpinBo
 
 from GUI.Models import DoubleSpinBoxDelegate, DrugTableModel
 from GUI.scope import ScopeLayoutWidget, PagedScope
+from monitor.ComediObjects import ComediStreamer
 from monitor.Objects import Drug, Sex, Mouse, LogFile
 from monitor import SyringePumps
+from monitor.SyringePumps import SyringePumpException
 from monitor.sampling import SurgeryFileStreamer
 
 PREVIOUS_VALUES_FILE = 'prev_vals.json'
@@ -349,14 +352,17 @@ class DrugTimer(QLabel):
     def onClockTimer(self, event):
         self._duration = datetime.datetime.today() - self._startTime
         self.updateText()
-        if self._alarmThresh is not None \
-                and self._duration.seconds > self._alarmThresh \
-                and not self._isAlarmTimerPastMaxDuration:
-            if not self._alarmTimer.isActive():
-                self.onAlarmTimer(None)
-                self._alarmTimer.start(self._alarmTimer_PERIOD)
-                if self._alarmSound is not None:
-                    self._alarmSound.play(-1)
+        if self._alarmThresh is not None and \
+                self._duration.seconds > self._alarmThresh and \
+                not self._isAlarmTimerPastMaxDuration and \
+                not self._alarmTimer.isActive():
+            self.triggerAlarm()
+
+    def triggerAlarm(self):
+        self.onAlarmTimer(None)
+        self._alarmTimer.start(self._alarmTimer_PERIOD)
+        if self._alarmSound is not None:
+            self._alarmSound.play(-1)
 
     def setAlarmThreshInMins(self, durInMins):
         if durInMins is not None:
@@ -591,7 +597,6 @@ class DrugPumpPanel(DrugPanel):
         # so we're saving their size before the icon, and restoring the original size after inserting the icon
         full_size = self._fullDoseButton.size()
         half_size = self._halfDoseButton.size()
-        cust_size = self._customDoseButton.size()
         self._fullDoseButton.setIcon(self.style().standardIcon(QStyle.SP_MediaSkipForward))
         self._fullDoseButton.setFixedSize(full_size)
         self._halfDoseButton.setIcon(self.style().standardIcon(QStyle.SP_MediaSkipForward))
@@ -633,6 +638,7 @@ class DrugPumpPanel(DrugPanel):
         self._perfRateSpinBox.setEnabled(enabled)
         self._perfRateUnitsComboBox.setEnabled(enabled)
 
+    # noinspection PyUnusedLocal
     def abortInjection(self, event):
         if self.pump.isRunning():
             self.pump.stop()
@@ -641,8 +647,9 @@ class DrugPumpPanel(DrugPanel):
     def waitForEndOfInjection(self, restoreRate, restoreUnits, restoreDir):
         # logger.debug("in waitForEndOfInjection()")
         while self.pump.isRunning():
+            time.sleep(0.1)
             pass
-            # logger.debug('pump is still running')
+            logger.debug('pump is still running')
         # logger.debug('pump is finished pumping')
         self.enableInjectButtons(True)
         # logger.debug("restoring previous pump state")
@@ -673,9 +680,11 @@ class PumpTimer(DrugTimer):
     def autoInject(self, value):
         self._autoInject = value
 
-    def onAlarmTimer(self, event):
+    def triggerAlarm(self):
+        # logger.debug('in PumpTimer.triggerAlarm()')
         if self.autoInject:
-            self.pumpPanel.onFullDoseButtonClick(event)
+            # logger.debug('autoInject==True, injecting...')
+            self.pumpPanel.onFullDoseButtonClick(None)
 
 
 class PhysioMonitorMainScreen(QFrame):
@@ -688,10 +697,10 @@ class PhysioMonitorMainScreen(QFrame):
         for serial_conf in self.config['serial-ports']:
 
             try:
-                ser = serial.Serial(serial_conf['port'], serial_conf['baud-rate'],
-                                    bytesize=serial_conf['byte-size'], parity=serial_conf['parity'],
-                                    stopbits=serial_conf['stop-bits'],
-                                    timeout=serial_conf['timeout'])
+                ser = serial.serial_for_url(serial_conf['port'], serial_conf['baud-rate'],
+                                            bytesize=serial_conf['byte-size'], parity=serial_conf['parity'],
+                                            stopbits=serial_conf['stop-bits'],
+                                            timeout=serial_conf['timeout'])
             except serial.SerialException:
                 ser = None
             if ser is None:
@@ -704,15 +713,24 @@ class PhysioMonitorMainScreen(QFrame):
         self.pumps = []
         for pump_conf in self.config['pumps']:
             model = pump_conf['model']
+            pump = None
             if model not in AVAIL_PUMPS:
                 raise ValueError('Incorrect pump model: {}'.format(pump_conf['model']))
-            pump = AVAIL_PUMPS[model](serialport=self.serialPorts[pump_conf['serial-port']])
-            self.pumps.append(pump)
+            try:
+                pump = AVAIL_PUMPS[model](serialport=self.serialPorts[pump_conf['serial-port']])
+                pump.doBeep()  # check that pump is working, should raise Exception if not
+            except SyringePumpException:
+                # noinspection PyTypeChecker
+                QMessageBox.warning(None, 'Syringe pump error',
+                                    f'Error communicating with the syringe pump "{model}"')
+            finally:
+                self.pumps.append(pump)
 
         self.__refreshTimer = QTimer()
         self.__refreshTimer.timeout.connect(self.update)
-        self.__stream = SurgeryFileStreamer(nChan=len(config['comedi']['channels']), filename="./media/surgery.txt",
-                                            pointsToReturn=None)
+        # self.__stream = SurgeryFileStreamer(nChan=len(config['comedi']['channels']), filename="./media/surgery.txt",
+        #                                    pointsToReturn=None)
+        self.__stream = ComediStreamer(config['comedi'])
         #
         # UI elements
         #
@@ -737,17 +755,17 @@ class PhysioMonitorMainScreen(QFrame):
         notebook.addTab(self.logBox, "Log")
 
         layout10.addWidget(clock, stretch=0)
-        scrollarea = QScrollArea()
-        scrollarea.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.MinimumExpanding)
-        scrollarea.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        scrollarea.setWidgetResizable(True)
+        scrollArea = QScrollArea()
+        scrollArea.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.MinimumExpanding)
+        scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scrollArea.setWidgetResizable(True)
         widget = QWidget()
-        scrollarea.setWidget(widget)
+        scrollArea.setWidget(widget)
         self.drugPanelsLayout = QVBoxLayout()
         self.drugPanelsLayout.setContentsMargins(0, 0, 0, 0)
         self.drugPanelsLayout.setSpacing(0)
         for i, drug in enumerate(config['drug-list']):
-            if drug.pump is not None:
+            if drug.pump is not None and self.pumps[drug.pump - 1] is not None:
                 panel = DrugPumpPanel(None, drug.name, drug.volume, pump=self.pumps[drug.pump - 1],
                                       # FIXME should pumps be zero indexed?
                                       alarmSoundFile='./media/beep3x6.wav', logFile=self.logFile)
@@ -757,7 +775,7 @@ class PhysioMonitorMainScreen(QFrame):
             self.drugPanelsLayout.addWidget(panel)
         self.drugPanelsLayout.setAlignment(Qt.AlignTop)
         widget.setLayout(self.drugPanelsLayout)
-        layout10.addWidget(scrollarea)
+        layout10.addWidget(scrollArea)
 
         self.newDrugButton = QPushButton("Other drug")
         self.newDrugButton.clicked.connect(self.addNewDrug)

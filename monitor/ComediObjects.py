@@ -1,7 +1,6 @@
 import numpy as np
 import logging
 import threading
-# noinspection PyUnresolvedReferences
 import comedi
 import os
 import struct
@@ -154,7 +153,7 @@ class ComediStreamer(Streamer):
         # logging.debug("in SurgeryFileStreamer __init__")
         self._remaining = []
         self._bufferSize = bufferSize
-        self._config = config['comedi']
+        self._config = config
         self.__chanMaxValues = []
         self.__chanRangeMins = []
         self.__chanRangeMaxs = []
