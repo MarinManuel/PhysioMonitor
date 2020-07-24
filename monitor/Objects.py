@@ -186,14 +186,14 @@ Comments:
     def append(self, text):
         self.content += text
         os.makedirs(os.path.dirname(self._path), exist_ok=True)
-        with open(self._path, 'a+') as f:
+        with open(self._path, 'a+', encoding='utf-8') as f:
             f.write(text)
         if self.widget is not None:
             self.widget.appendPlainText(text)
 
     @staticmethod
     def parse(path):
-        with open(path, 'r') as f:
+        with open(path, 'r', encoding='utf-8') as f:
             content = f.read()
         mouse = None
         drugs = []

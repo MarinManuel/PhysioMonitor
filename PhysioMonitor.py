@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import argparse
 import json
 import logging
@@ -15,7 +16,7 @@ parser.add_argument('-c', "--config", help="path of the configuration file to us
 args = parser.parse_args()
 
 try:
-    with open(args.config, 'r') as f:
+    with open(args.config, 'r', encoding='utf-8') as f:
         config = json.load(f)
 except (FileNotFoundError, json.JSONDecodeError):
     parser.error("filed passed to --config is not a valid configuration file")
@@ -34,7 +35,7 @@ if startDlg.exec():
     if not startDlg.isResumed:
         logFile.append(logFile.getHeader(mouse=startDlg.mouse, drugList=startDlg.drugList))
     else:
-        with open(startDlg.logFile, 'r') as f:
+        with open(startDlg.logFile, 'r', encoding='utf-8') as f:
             previous_content = f.read()
         logFile.content = previous_content
         logFile.widget.setPlainText(previous_content)

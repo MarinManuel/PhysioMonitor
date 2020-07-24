@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import datetime
 import json
 import logging
@@ -19,7 +20,7 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QDialog, QDoubleSpinBo
 
 from GUI.Models import DoubleSpinBoxDelegate, DrugTableModel
 from GUI.scope import ScopeLayoutWidget, PagedScope
-from monitor.ComediObjects import ComediStreamer
+# from monitor.ComediObjects import ComediStreamer
 from monitor.Objects import Drug, Sex, Mouse, LogFile
 from monitor import SyringePumps
 from monitor.SyringePumps import SyringePumpException
@@ -715,22 +716,34 @@ class PhysioMonitorMainScreen(QFrame):
             model = pump_conf['model']
             pump = None
             if model not in AVAIL_PUMPS:
-                raise ValueError('Incorrect pump model: {}'.format(pump_conf['model']))
-            try:
-                pump = AVAIL_PUMPS[model](serialport=self.serialPorts[pump_conf['serial-port']])
-                pump.doBeep()  # check that pump is working, should raise Exception if not
-            except SyringePumpException:
-                # noinspection PyTypeChecker
-                QMessageBox.warning(None, 'Syringe pump error',
-                                    f'Error communicating with the syringe pump "{model}"')
-            finally:
-                self.pumps.append(pump)
+                raise ValueError('Incorrect pump model: {}'.format(model))
+            # sometimes, it takes a couple of tries for the pump to answer,
+            # so we'll try in a loop and test if it was successful
+            success = False
+            while not success:
+                for _ in range(3):
+                    try:
+                        pump = AVAIL_PUMPS[model](serialport=self.serialPorts[pump_conf['serial-port']])
+                        pump.isRunning()  # check that pump is working, should raise Exception if not
+                        success = True
+                        pump.doBeep()
+                        break
+                    except SyringePumpException:
+                        pump = None
+                if not success:
+                    # noinspection PyTypeChecker
+                    ans = QMessageBox.question(None, "Pump not responding",
+                                               """Cannot communicate with the pump {}, maybe it is off?
+Retry?""".format(model))
+                    if ans == QMessageBox.No:
+                        success = True
+            self.pumps.append(pump)
 
         self.__refreshTimer = QTimer()
         self.__refreshTimer.timeout.connect(self.update)
-        # self.__stream = SurgeryFileStreamer(nChan=len(config['comedi']['channels']), filename="./media/surgery.txt",
-        #                                    pointsToReturn=None)
-        self.__stream = ComediStreamer(config['comedi'])
+        self.__stream = SurgeryFileStreamer(nChan=len(config['comedi']['channels']), filename="./media/surgery.txt",
+                                            pointsToReturn=None)
+        # self.__stream = ComediStreamer(config['comedi'])
         #
         # UI elements
         #
@@ -873,7 +886,7 @@ class StartDialog(QDialog):
 
         # load previous values to pre-populate dialog
         try:
-            with open(PREVIOUS_VALUES_FILE, 'r') as f:
+            with open(PREVIOUS_VALUES_FILE, 'r', encoding='utf-8') as f:
                 prev_values: dict = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             prev_values = {}
@@ -1046,7 +1059,7 @@ class StartDialog(QDialog):
                'drugs': [drug.__dict__ for drug in self.drugList],
                'save-path': self.savePath
                }
-        with open(PREVIOUS_VALUES_FILE, 'w') as f:
+        with open(PREVIOUS_VALUES_FILE, 'w', encoding='utf-8') as f:
             json.dump(out, f)
 
         super().accept()

@@ -133,7 +133,7 @@
   },
   "serial-ports": [
     {
-      "port": "alt:///dev/ttyS0?class=PosixPollSerial",
+      "port": "COM1",
       "baud-rate": 1200,
       "byte-size": 8,
       "parity": "N",
