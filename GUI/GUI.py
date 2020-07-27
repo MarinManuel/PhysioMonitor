@@ -11,7 +11,7 @@ import serial
 from PyQt5 import uic
 from PyQt5.QtCore import QTimer, QSize, QRect, QModelIndex, QDate, QStringListModel
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QIcon, QCursor, QFont, QFontDatabase
+from PyQt5.QtGui import QIcon, QCursor, QFont, QFontDatabase, QCloseEvent
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QDialog, QDoubleSpinBox, QLineEdit, QPushButton, \
     QHBoxLayout, QSpinBox, QDialogButtonBox, QGridLayout, QSizePolicy, \
     QRadioButton, QGroupBox, QStyle, QPlainTextEdit, QTabWidget, QScrollArea, QInputDialog, QFrame, QApplication, \
@@ -20,11 +20,11 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QDialog, QDoubleSpinBo
 
 from GUI.Models import DoubleSpinBoxDelegate, DrugTableModel
 from GUI.scope import ScopeLayoutWidget, PagedScope
+from monitor import SyringePumps
 # from monitor.ComediObjects import ComediStreamer
 from monitor.Objects import Drug, Sex, Mouse, LogFile
-from monitor import SyringePumps
 from monitor.SyringePumps import SyringePumpException
-from monitor.sampling import SurgeryFileStreamer
+from monitor.nistreamer import nistreamer, nistreamerSin, nistreamerPhysio
 
 PREVIOUS_VALUES_FILE = 'prev_vals.json'
 
@@ -733,17 +733,19 @@ class PhysioMonitorMainScreen(QFrame):
                 if not success:
                     # noinspection PyTypeChecker
                     ans = QMessageBox.question(None, "Pump not responding",
-                                               """Cannot communicate with the pump {}, maybe it is off?
-Retry?""".format(model))
+                                               f"Cannot communicate with the pump {model}, maybe it is off?\nRetry?")
                     if ans == QMessageBox.No:
                         success = True
             self.pumps.append(pump)
 
         self.__refreshTimer = QTimer()
         self.__refreshTimer.timeout.connect(self.update)
-        self.__stream = SurgeryFileStreamer(nChan=len(config['comedi']['channels']), filename="./media/surgery.txt",
-                                            pointsToReturn=None)
+        # self.__stream = SurgeryFileStreamer(nChan=len(config['comedi']['channels']), filename="./media/surgery.txt",
+        #                                     pointsToReturn=None)
         # self.__stream = ComediStreamer(config['comedi'])
+        # self.__stream = nistreamerSin(config['acquisition'], buffer_size=100, sin_freq=1.)
+        self.__stream = nistreamerPhysio(config['acquisition'], buffer_size=100, filename="./media/surgery.txt",
+                                        nPoints=1000, nChan=2)
         #
         # UI elements
         #
@@ -803,9 +805,9 @@ Retry?""".format(model))
         layout00.addLayout(layout10, stretch=0)
         layout00.addWidget(notebook, stretch=1)
 
-        for i, chan in enumerate(config['comedi']['channels']):
+        for i, chan in enumerate(config['acquisition']['channels']):
             plot = PagedScope(
-                sampleFreq=config['comedi']['sample-rate'],
+                sampleFreq=config['acquisition']['sample-rate'],
                 windowSize=chan['window-size'],
                 linecolor=chan['line-color'],
                 linewidth=chan['line-width'],
@@ -861,6 +863,9 @@ Retry?""".format(model))
             if ok == QDialogButtonBox.YesToAll:
                 newPanel.onFullDoseButtonClick(None)
 
+    def closeEvent(self, event: QCloseEvent) -> None:
+        self.__stream.close()
+        event.accept()
 
 class StartDialog(QDialog):
     expInvestigatorComboBox: QComboBox
