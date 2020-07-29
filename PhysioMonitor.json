@@ -2,7 +2,7 @@
   "log-filename": "SurgicalLog.txt",
   "acquisition": {
     "hardware": {
-      "module": "nistreamer",
+      "module": "nidaqmx",
       "sample-rate": 1000,
       "device": "Dev1",
       "physical-channels": ["ai0", "ai1"],

@@ -113,6 +113,8 @@ class ScrollingScope(pg.PlotItem):
             self.vb.enableAutoRange(axis=self.vb.YAxis)
         else:
             self.vb.setYRange(self._ymin, self._ymax, padding=0)
+        self.getAxis('left').setStyle(autoExpandTextSpace=False)  # , autoReduceTextSpace=False)
+        # FIXME: autoReduceTextSpace is not available in v0.11.0
         self.vb.setXRange(0.0, self._windowSize, padding=0)
         self.setLabel(axis="left", text=self._title, units=self._units)
         self._curve.setPen({'color': self._linecolor, 'width': self._linewidth})
@@ -168,8 +170,7 @@ class ScrollingScope(pg.PlotItem):
             self._trendVB.viewRange()[0][1], self._trendVB.viewRange()[1][0]
         )
         self._trendVB.addItem(self._trendText)
-        self._trendAxis.setPen({'color': self._trendlinecolor})
-        # FIXME: I would like to change only the color of the ticks labels, and not of the whole axis
+        self._trendAxis.setTextPen({'color': self._trendlinecolor})
         self._trendTimer = pg.QtCore.QTimer()
         # noinspection PyUnresolvedReferences
         self._trendTimer.timeout.connect(self.onTrendTimer)

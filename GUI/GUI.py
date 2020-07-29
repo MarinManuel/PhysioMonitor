@@ -32,6 +32,11 @@ AVAIL_PUMPS = {'dummy': SyringePumps.DummyPump,
                'aladdin': SyringePumps.AladdinPump,
                'model11plus': SyringePumps.Model11plusPump}
 
+AVAIL_ACQ_MODULES = {'nidaqmx': nistreamer,
+                     'nidaqmxSin': nistreamerSin,
+                     'nidaqmxPhysio': nistreamerPhysio}
+
+ACQ_BUFFER_SIZE = 100
 # if it hasn't been already, initialize the sound mixer
 if pygame.mixer.get_init() is None:
     pygame.mixer.pre_init(44100, -16, 2, 2048)
@@ -694,9 +699,19 @@ class PhysioMonitorMainScreen(QFrame):
 
         self.config = config
 
+        # Acquisition system
+        module = config['acquisition']['hardware']['module']
+        if module not in AVAIL_ACQ_MODULES:
+            # noinspection PyTypeChecker
+            QMessageBox.critical(None, 'Wrong acquisition module',
+                                 f'ERROR: wrong acquisition module {module}.\n'
+                                 'Must be one of: ' + ','.join(AVAIL_ACQ_MODULES.keys()))
+            raise ValueError('Wrong acquisition module in config file')
+        self.__stream = AVAIL_ACQ_MODULES[module](config=config['acquisition'], buffer_size=ACQ_BUFFER_SIZE)
+
+        # Serial communication
         self.serialPorts = []
         for serial_conf in self.config['serial-ports']:
-
             try:
                 ser = serial.serial_for_url(serial_conf['port'], serial_conf['baud-rate'],
                                             bytesize=serial_conf['byte-size'], parity=serial_conf['parity'],
@@ -738,14 +753,10 @@ class PhysioMonitorMainScreen(QFrame):
                         success = True
             self.pumps.append(pump)
 
+        # Timer with callback to update plots
         self.__refreshTimer = QTimer()
         self.__refreshTimer.timeout.connect(self.update)
-        # self.__stream = SurgeryFileStreamer(nChan=len(config['comedi']['channels']), filename="./media/surgery.txt",
-        #                                     pointsToReturn=None)
-        # self.__stream = ComediStreamer(config['comedi'])
-        # self.__stream = nistreamerSin(config['acquisition'], buffer_size=100, sin_freq=1.)
-        self.__stream = nistreamerPhysio(config['acquisition'], buffer_size=100, filename="./media/surgery.txt",
-                                        nPoints=1000, nChan=2)
+
         #
         # UI elements
         #
@@ -866,6 +877,7 @@ class PhysioMonitorMainScreen(QFrame):
     def closeEvent(self, event: QCloseEvent) -> None:
         self.__stream.close()
         event.accept()
+
 
 class StartDialog(QDialog):
     expInvestigatorComboBox: QComboBox
