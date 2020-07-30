@@ -88,7 +88,7 @@ class ScrollingScope(pg.PlotItem):
         else:
             self._alarmSound = None
 
-        self._bufferSize = windowSize * sampleFreq
+        self._bufferSize = int(windowSize * sampleFreq)
         self._buffer = np.zeros((self._bufferSize,))
         self._xArray = np.linspace(0, self._windowSize, num=self._bufferSize)
         self._curve = self.plot(x=self._xArray, y=self._buffer)
@@ -463,7 +463,7 @@ class PagedScope(ScrollingScope):
 
     def _waitForTrigger(self, chunk):
         # if self._trigMode.upper() == 'RISING' or self._trigMode.upper() == 'FALLING':
-        #     logging.debug("[%s] in _waitForTrigger(%s) - %s" % (datetime.datetime.now().strftime("%H:%M:%S"),
+        #     logging.debug("[%s] in _waitForTrigger(%s) - %s" % (self._title,
         #                                                         chunk.shape,
         #                                                         self._trigMode))
         if self._autoTrigLevel and (self._trigMode.upper() == 'RISING' or self._trigMode == 'FALLING'):
@@ -489,27 +489,28 @@ class PagedScope(ScrollingScope):
             return chunk  # AUTO mode
 
     def append(self, chunk):
-        # logging.debug("[%s] in append(%s)", datetime.datetime.now().strftime("%H:%M:%S"), chunk.shape)
+        # logging.debug("[%s] in append(%s)", self._title, chunk.shape)
         N = chunk.size
         if N == 0:
             return
 
-        chunk = self._rescaleData(chunk)  # converts data in real units
-        self._trigLevelBuffer.append(chunk)  # keep a copy of the data for trigger level
-        self._trendBuffer.append(chunk)  # add data to trend buffer
+        scaled_chunk = self._rescaleData(chunk)  # converts data in real units
+
+        self._trigLevelBuffer.append(scaled_chunk)  # keep a copy of the data for trigger level
+        self._trendBuffer.append(scaled_chunk)  # add data to trend buffer
 
         if self._buffer.size == 0:  # no data in main curve yet
-            chunk = self._waitForTrigger(chunk)
+            scaled_chunk = self._waitForTrigger(scaled_chunk)
 
         if self._buffer.size + N <= self._bufferSize:
-            self._buffer = np.concatenate([self._buffer, chunk])
+            self._buffer = np.concatenate([self._buffer, scaled_chunk])
             self._curve.setData(
                 x=np.linspace(0.0, float(self._buffer.size) / self._sampleFreq, self._buffer.size),
                 y=self._buffer)
         else:
             pointsToAdd = self._bufferSize - self._buffer.size
             pointsLeft = N - pointsToAdd
-            temp = np.concatenate([self._buffer, chunk[:pointsToAdd]])
+            temp = np.concatenate([self._buffer, scaled_chunk[:pointsToAdd]])
             # create a new remanent curve
             curve = self.plot(x=self._xArray, y=temp)
             curve.setPen(color=self._linecolor, width=self._linewidth / 2)
