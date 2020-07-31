@@ -848,6 +848,7 @@ class PhysioMonitorMainScreen(QFrame):
             )
             self._graphLayout.addItem(plot, i, 1)
         self.setLayout(layout00)
+        self.setWindowIcon(QIcon('../media/icon.png'))
 
     def start(self):
         self.__stream.start()
@@ -896,6 +897,7 @@ class StartDialog(QDialog):
     def __init__(self, config):
         super().__init__()
         uic.loadUi('./GUI/StartScreen.ui', self)
+        self.setWindowIcon(QIcon('../media/icon.png'))
 
         self.buttonBox.button(QDialogButtonBox.Ok).setIcon(QApplication.style().standardIcon(QStyle.SP_DialogOkButton))
         self.buttonBox.button(QDialogButtonBox.Cancel).setIcon(
