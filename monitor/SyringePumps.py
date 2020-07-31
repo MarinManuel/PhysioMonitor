@@ -597,7 +597,7 @@ class AladdinPump(SyringePump):
         self.address = address
         self.ansParser = re.compile(self.__ANS_PATTERN)
         self.serial = serialport
-        if serial is not None:
+        if self.serial is not None:
             self.serial.flush()
             self.serial.flushInput()
             self.serial.flushOutput()
@@ -619,6 +619,8 @@ class AladdinPump(SyringePump):
                % (version, port, direction, diameter, rate, units, volume, target)
 
     def sendCommand(self, inCommand, returnAll=False):
+        if self.serial is None:
+            raise unforseenException('No serial port connected')
         self.serial.flush()
         self.serial.flushInput()
         self.serial.flushOutput()
@@ -830,3 +832,8 @@ class aladdinAlarmException(SyringePumpException):
             Exception.__init__(self, "Pumping program phase is out of range")
         else:
             Exception.__init__(self, status)
+
+
+AVAIL_PUMPS = {'dummy': DummyPump,
+               'aladdin': AladdinPump,
+               'model11plus': Model11plusPump}

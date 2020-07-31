@@ -23,20 +23,11 @@ from GUI.scope import ScopeLayoutWidget, PagedScope
 from monitor import SyringePumps
 # from monitor.ComediObjects import ComediStreamer
 from monitor.Objects import Drug, Sex, Mouse, LogFile
-from monitor.SyringePumps import SyringePumpException
-from monitor.nistreamer import nistreamer, nistreamerSin, nistreamerPhysio
+from monitor.SyringePumps import SyringePumpException, AVAIL_PUMPS
+from monitor.sampling import AVAIL_ACQ_MODULES
 
 PREVIOUS_VALUES_FILE = 'prev_vals.json'
 
-AVAIL_PUMPS = {'dummy': SyringePumps.DummyPump,
-               'aladdin': SyringePumps.AladdinPump,
-               'model11plus': SyringePumps.Model11plusPump}
-
-AVAIL_ACQ_MODULES = {'nidaqmx': nistreamer,
-                     'nidaqmxSin': nistreamerSin,
-                     'nidaqmxPhysio': nistreamerPhysio}
-
-ACQ_BUFFER_SIZE = 100
 # if it hasn't been already, initialize the sound mixer
 if pygame.mixer.get_init() is None:
     pygame.mixer.pre_init(44100, -16, 2, 2048)
@@ -700,14 +691,14 @@ class PhysioMonitorMainScreen(QFrame):
         self.config = config
 
         # Acquisition system
-        module = config['acquisition']['hardware']['module']
+        module = config['acquisition']['module']
         if module not in AVAIL_ACQ_MODULES:
             # noinspection PyTypeChecker
             QMessageBox.critical(None, 'Wrong acquisition module',
                                  f'ERROR: wrong acquisition module {module}.\n'
                                  'Must be one of: ' + ','.join(AVAIL_ACQ_MODULES.keys()))
             raise ValueError('Wrong acquisition module in config file')
-        self.__stream = AVAIL_ACQ_MODULES[module](config=config['acquisition'], buffer_size=ACQ_BUFFER_SIZE)
+        self.__stream = AVAIL_ACQ_MODULES[module](**config['acquisition']['module-args'])
 
         # Serial communication
         self.serialPorts = []
@@ -816,7 +807,7 @@ class PhysioMonitorMainScreen(QFrame):
         layout00.addLayout(layout10, stretch=0)
         layout00.addWidget(notebook, stretch=1)
 
-        for i, chan in enumerate(config['acquisition']['channels']):
+        for i, chan in enumerate(config['channels']):
             plot = PagedScope(
                 sampleFreq=config['acquisition']['sample-rate'],
                 windowSize=chan['window-size'],
