@@ -353,6 +353,47 @@ class ScrollingScope(pg.PlotItem):
                 self._alarmMuted = False
                 self._muteButton.setVisible(False)
 
+    @property
+    def autoscale(self):
+        return self._autoscale
+
+    @autoscale.setter
+    def autoscale(self, value):
+        self._autoscale = value
+        if self._autoscale:
+            self.vb.enableAutoRange(axis=self.vb.YAxis)
+        else:
+            self.vb.setYRange(self._ymin, self._ymax, padding=0)
+
+    def _menuToggleAutoscale(self, state):
+        self.autoscale = state
+        self.vb.menuYAxisLimits.lowSpin.setEnabled(not self.autoscale)
+        self.vb.menuYAxisLimits.highSpin.setEnabled(not self.autoscale)
+
+    @property
+    def ymin(self):
+        return self._ymin
+
+    @ymin.setter
+    def ymin(self, value):
+        self._ymin = value
+        self.vb.setYRange(self._ymin, self._ymax, padding=0)
+
+    @property
+    def ymax(self):
+        return self._ymax
+
+    @ymax.setter
+    def ymax(self, value):
+        self._ymax = value
+        self.vb.setYRange(self._ymin, self._ymax, padding=0)
+
+    def _menuSetYMin(self, value):
+        self.ymin = value
+
+    def _menuSetYMax(self, value):
+        self.ymax = value
+
     def _createMenu(self):
         self.vb.menu = QMenu()
         self.vb.menuAlarm = QMenu('Alarm')
@@ -362,11 +403,33 @@ class ScrollingScope(pg.PlotItem):
         if self.alarmEnabled:
             self.vb.menuAlarmEnabled.setChecked(True)
         self.vb.menuAlarmEnabled.toggled.connect(self._menuToggleAlarm)
-        self.vb.menuAlarmLimits = menuAlarmLimitsAction(lo=self.alarmLow, hi=self.alarmHigh, units=self._trendUnits)
-        self.vb.menuAlarmLimits.alarmLo.valueChanged.connect(self._menuSetAlarmLow)
-        self.vb.menuAlarmLimits.alarmHi.valueChanged.connect(self._menuSetAlarmHigh)
+        self.vb.menuAlarmLimits = menuLowHighSpinAction(lowVal=self.alarmLow, highVal=self.alarmHigh,
+                                                        units=self._trendUnits,
+                                                        labelLow='Low threshold',
+                                                        labelHigh='High threshold',
+                                                        minVal=0.0, maxVal=float('inf'))
+        self.vb.menuAlarmLimits.lowSpin.valueChanged.connect(self._menuSetAlarmLow)
+        self.vb.menuAlarmLimits.highSpin.valueChanged.connect(self._menuSetAlarmHigh)
         self.vb.menuAlarm.addAction(self.vb.menuAlarmLimits)
+
+        self.vb.menuYAxis = QMenu('Y-axis')
+        # noinspection PyArgumentList
+        self.vb.menuYAxisAutoscaleEnabled = QAction('Autoscale', self.vb.menuYAxis, checkable=True)
+        self.vb.menuYAxis.addAction(self.vb.menuYAxisAutoscaleEnabled)
+        self.vb.menuYAxisAutoscaleEnabled.toggled.connect(self._menuToggleAutoscale)
+        self.vb.menuYAxisLimits = menuLowHighSpinAction(lowVal=self.ymin, highVal=self.ymax, units=self._units,
+                                                        labelHigh='Y max', labelLow='Y min',
+                                                        minVal=float('-inf'), maxVal=float('inf'))
+        self.vb.menuYAxisLimits.lowSpin.valueChanged.connect(self._menuSetYMin)
+        self.vb.menuYAxisLimits.highSpin.valueChanged.connect(self._menuSetYMax)
+        if self.autoscale:
+            self.vb.menuYAxisAutoscaleEnabled.setChecked(True)
+            self.vb.menuYAxisLimits.lowSpin.setEnabled(False)
+            self.vb.menuYAxisLimits.highSpin.setEnabled(False)
+        self.vb.menuYAxis.addAction(self.vb.menuYAxisLimits)
+
         self.vb.menu.addMenu(self.vb.menuAlarm)
+        self.vb.menu.addMenu(self.vb.menuYAxis)
         return self.vb.menu
 
     def _raiseContextMenu(self, ev):
@@ -375,25 +438,28 @@ class ScrollingScope(pg.PlotItem):
         menu.popup(QtCore.QPoint(pos.x(), pos.y()))
 
 
-class menuAlarmLimitsAction(QWidgetAction):
-    def __init__(self, parent=None, lo=0.0, hi=0.0, units=''):
+class menuLowHighSpinAction(QWidgetAction):
+    def __init__(self, parent=None, lowVal=0.0, highVal=0.0, units='',
+                 labelHigh="High value",
+                 labelLow="Low value",
+                 minVal=0.0, maxVal=10.0):
         super().__init__(parent)
         w = QWidget()
         layout = QFormLayout(w)
         layout.setContentsMargins(12, 0, 0, 0)
         layout.setSpacing(0)
-        self.alarmLo = QDoubleSpinBox()
-        self.alarmLo.setMinimum(0.0)
-        self.alarmLo.setMaximum(float('inf'))
-        self.alarmLo.setValue(lo)
-        self.alarmLo.setSuffix('' if len(units) == 0 else ' ' + units)
-        self.alarmHi = QDoubleSpinBox()
-        self.alarmHi.setMinimum(0.0)
-        self.alarmHi.setMaximum(float('inf'))
-        self.alarmHi.setValue(hi)
-        self.alarmHi.setSuffix('' if len(units) == 0 else ' ' + units)
-        layout.addRow("High threshold", self.alarmHi)
-        layout.addRow("Low threshold", self.alarmLo)
+        self.lowSpin = QDoubleSpinBox()
+        self.lowSpin.setMinimum(minVal)
+        self.lowSpin.setMaximum(maxVal)
+        self.lowSpin.setValue(lowVal)
+        self.lowSpin.setSuffix('' if len(units) == 0 else ' ' + units)
+        self.highSpin = QDoubleSpinBox()
+        self.highSpin.setMinimum(minVal)
+        self.highSpin.setMaximum(maxVal)
+        self.highSpin.setValue(highVal)
+        self.highSpin.setSuffix('' if len(units) == 0 else ' ' + units)
+        layout.addRow(labelHigh, self.highSpin)
+        layout.addRow(labelLow, self.lowSpin)
         w.setLayout(layout)
         self.setDefaultWidget(w)
 

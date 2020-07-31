@@ -29,9 +29,9 @@ if startDlg.exec():
     logFile = LogFile(startDlg.logFile)
     config['log-file'] = logFile
 
-    scr = PhysioMonitorMainScreen(config)
+    physio_monitor = PhysioMonitorMainScreen(config)
 
-    logFile.widget = scr.logBox
+    logFile.widget = physio_monitor.logBox
     if not startDlg.isResumed:
         logFile.append(logFile.getHeader(mouse=startDlg.mouse, drugList=startDlg.drugList))
     else:
@@ -40,6 +40,6 @@ if startDlg.exec():
         logFile.content = previous_content
         logFile.widget.setPlainText(previous_content)
         logFile.append('#### resumed from here\n')
-    scr.show()
-    scr.start()
+    physio_monitor.show()
+    physio_monitor.start()
     app.exec()
