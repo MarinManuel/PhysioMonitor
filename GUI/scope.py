@@ -388,6 +388,9 @@ class ScrollingScope(pg.PlotItem):
         self._ymax = value
         self.vb.setYRange(self._ymin, self._ymax, padding=0)
 
+    def getLastTrendData(self):
+        return self._trendData[-1]
+
     def _menuSetYMin(self, value):
         self.ymin = value
 

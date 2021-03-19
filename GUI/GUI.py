@@ -19,7 +19,7 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QDialog, QDoubleSpinBo
     QMessageBox
 
 from GUI.Models import DoubleSpinBoxDelegate, DrugTableModel
-from GUI.scope import ScopeLayoutWidget, PagedScope
+from GUI.scope import ScopeLayoutWidget, PagedScope, ScrollingScope
 from monitor import SyringePumps
 # from monitor.ComediObjects import ComediStreamer
 from monitor.Objects import Drug, Sex, Mouse, LogFile
@@ -745,8 +745,12 @@ class PhysioMonitorMainScreen(QFrame):
             self.pumps.append(pump)
 
         # Timer with callback to update plots
-        self.__refreshTimer = QTimer()
-        self.__refreshTimer.timeout.connect(self.update)
+        self.__refreshScopeTimer = QTimer()
+        self.__refreshScopeTimer.timeout.connect(self.update)
+
+        # Timer for dumping physio values to log
+        self.__physioToLogTimer = QTimer()
+        self.__physioToLogTimer.timeout.connect(self._writePhysioToLog)
 
         #
         # UI elements
@@ -843,7 +847,8 @@ class PhysioMonitorMainScreen(QFrame):
 
     def start(self):
         self.__stream.start()
-        self.__refreshTimer.start(50)
+        self.__refreshScopeTimer.start(50)
+        self.__physioToLogTimer.start(5 * 60 * 1000)  # FIXME: this value should be in the config file
         for i in range(len(self._graphLayout.centralWidget.items)):
             plot = self._graphLayout.getItem(i, 1)
             plot.start()
@@ -851,6 +856,15 @@ class PhysioMonitorMainScreen(QFrame):
     def update(self):
         data = self.__stream.read()
         self._graphLayout.append(data)
+
+    def writePhysioToLog(self):
+        currTime = datetime.datetime.now().strftime("%H:%M:%S")
+        text = ''
+        for i in range(len(self._graphLayout.centralWidget.items)):
+            plot: ScrollingScope = self._graphLayout.getItem(i, 1)
+            value = plot.getLastTrendData()
+            text += '{:.1f} {:s} | '.format(value, plot._trendUnits)
+        self.logFile.append('{:s}\t{:s}\n'.format(currTime, text))
 
     def addNote(self):
         text, ok = QInputDialog.getText(self, 'Add a note to the log', 'Note:')
