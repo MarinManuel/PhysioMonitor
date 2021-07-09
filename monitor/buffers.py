@@ -1,9 +1,10 @@
 import numpy as np
-# import logging
+import logging
+
+logger = logging.getLogger(__name__)
 
 
-# noinspection PyRedeclaration
-class RollingBuffer:
+class RollingBuffer(object):
     """
     a rolling buffer
     elements are added line-wise to the right of the matrix and shift previous elements to the left
@@ -12,6 +13,7 @@ class RollingBuffer:
     3 4 5  +  6 6  =  5 6 6
     6 7 8     7 7     8 7 7
     """
+
     def __init__(self, size=100, nLines=1, fill=0.0):
         self._size = size
         self._nLines = nLines
@@ -49,10 +51,10 @@ class RollingBuffer:
         return self._buffer.__repr__()
 
     def min(self, axis=None, out=None):
-        return self._buffer.min(axis, out)
+        return self._buffer.min(axis, out, initial=None)
 
     def max(self, axis=None, out=None):
-        return self._buffer.max(axis, out)
+        return self._buffer.max(axis, out, initial=None)
 
     def size(self):
         return self._buffer.size

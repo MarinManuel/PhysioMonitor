@@ -1,9 +1,10 @@
 import logging
 import re
 from enum import IntEnum
-
 import serial
 import time
+
+logger = logging.getLogger(__name__)
 
 # bolus injection done at 1 mL/min
 BOLUS_RATE = 1.0
@@ -29,120 +30,120 @@ class SyringePump(object):
         """
         constructor
         """
-        raise NotImplementedError("Constructor needs to be implemented")
+        pass
 
     def __del__(self):
         """
         Destructor to cleanly close the serial object if need
         """
-        raise NotImplementedError()
+        pass
 
     def start(self):
         """
         starts the pump with the parameters defined beforehand
         """
-        raise NotImplementedError()
+        pass
 
     def stop(self):
         """
         stops the pump
         """
-        raise NotImplementedError()
+        pass
 
     def reverse(self):
         """
         reverse the flow of the pump (if available)
         """
-        raise NotImplementedError()
+        pass
 
     def isRunning(self):
         """
         returns True if the pump is running (infusion or withdrawing)
         and False if it is stopped
         """
-        raise NotImplementedError()
+        pass
 
     def clearAccumulatedVolume(self):
         """
         resets to 0 the volume of liquid pumped
         """
-        raise NotImplementedError()
+        pass
 
     def clearTargetVolume(self):
         """
         clears the target volume for the pump. This should put the pump in
         continuous injection mode
         """
-        raise NotImplementedError()
+        pass
 
     def setDirection(self, inValue):
         """
         defines the direction that the pump will run.
         inValue is an int representation of the directions that the pump is capable of running in
         """
-        raise NotImplementedError()
+        pass
 
     def setSyringeDiameter(self, inValue):
         """
         defines the diameter of the syringe in mm
         """
-        raise NotImplementedError()
+        pass
 
     def setRate(self, inValue, inUnits):
         """
         sets the rate of the pump
         optionally, one can also change the units (see set units)
         """
-        raise NotImplementedError()
+        pass
 
     def setTargetVolume(self, inValue):
         """
         puts the pump in fixed amount mode and defines the volume
         after which it will stop pumping
         """
-        raise NotImplementedError()
+        pass
 
     def getDiameter(self):
         """
         returns the current diameter (in mm) of the syringe
         """
-        raise NotImplementedError()
+        pass
 
     def getRate(self):
         """
         returns the current rate of pumping as a float
         """
-        raise NotImplementedError()
+        pass
 
     def getUnits(self):
         """
         return the current units as an int
         """
-        raise NotImplementedError()
+        pass
 
     def getAccumulatedVolume(self):
         """
         returns the amount of liquid pumped so far as a float. Units might vary
         """
-        raise NotImplementedError()
+        pass
 
     def getTargetVolume(self):
         """
         returns the target volume for the pump as a float. Units might vary
         """
-        raise NotImplementedError()
+        pass
 
     def getDirection(self):
         """
         returns the current direction of the pump as an int
         """
-        raise NotImplementedError()
+        pass
 
     def getPossibleUnits(self):
         """
         returns an array of the possible units accepted by this pump
         """
-        raise NotImplementedError()
+        pass
 
 
 class SyringePumpException(Exception):
@@ -344,7 +345,7 @@ class Model11plusPump(SyringePump):
         self.serial.flush()
         self.serial.flushInput()
         self.serial.flushOutput()
-        logging.debug("sending command \"%s\"..." % inCommand)
+        logger.debug("sending command \"%s\"..." % inCommand)
         self.serial.write(inCommand)
         time.sleep(0.3)
         nbChar = self.serial.inWaiting()
@@ -624,7 +625,7 @@ class AladdinPump(SyringePump):
         self.serial.flush()
         self.serial.flushInput()
         self.serial.flushOutput()
-        logging.debug(">>sending command \"%02d%s\"..." % (self.address, inCommand.replace('\r', '\\r')))
+        logger.debug(">>sending command \"%02d%s\"..." % (self.address, inCommand.replace('\r', '\\r')))
         self.serial.write(inCommand.encode())
         sendTime = time.time()
         ans = ''
@@ -638,7 +639,7 @@ class AladdinPump(SyringePump):
         self.serial.flush()
         self.serial.flushInput()
         self.serial.flushOutput()
-        logging.debug("<<reading %d bytes in response: \"%s\"" % (nbBytes, repr(ans)))
+        logger.debug("<<reading %d bytes in response: \"%s\"" % (nbBytes, repr(ans)))
         address, status, message = self.parse(ans)
         if 'A?' in status:
             raise AlarmException(status)
@@ -659,7 +660,7 @@ class AladdinPump(SyringePump):
         if m is None:
             raise PumpInvalidAnswerException
         # noinspection PyStringFormat
-        logging.debug("<<received valid answer from pump [%02s]. Status is '%s' and answer is '%s'" % m.groups())
+        logger.debug("<<received valid answer from pump [%02s]. Status is '%s' and answer is '%s'" % m.groups())
         return m.groups()
 
     def start(self):

@@ -110,6 +110,7 @@ class DrugTableModel(QAbstractTableModel):
                 setattr(drug, self.FIELDS[index.column()], value)
             except ValueError:
                 return False
+            # noinspection PyUnresolvedReferences
             self.dataChanged.emit(index, index)
             return True
 

@@ -3,6 +3,8 @@ import numpy as np
 import pandas as pd
 import logging
 
+logger = logging.getLogger(__name__)
+
 
 def deinterleave(inData, nChan, dtype=int):
     """
@@ -85,7 +87,8 @@ class SinusoidStreamer(Streamer):
 
 
 class SurgeryFileStreamer(Streamer):
-    def __init__(self, nChans=1, sampleFreq=1000., filename="./media/surgery.txt", start=True, pointsToReturn=None):
+    def __init__(self, nChans=1, sampleFreq=1000., filename="./media/file_streamer_data.txt", start=True,
+                 pointsToReturn=None):
         self._nChan = nChans
         self._sampleFreq = sampleFreq
         self._table = pd.read_table(filename, index_col=0)

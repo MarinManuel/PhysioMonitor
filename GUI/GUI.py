@@ -25,6 +25,7 @@ from monitor.Objects import Drug, Sex, Mouse, LogFile
 from monitor.SyringePumps import SyringePumpException, AVAIL_PUMPS
 from monitor.sampling import AVAIL_ACQ_MODULES
 
+# noinspection SpellCheckingInspection
 PREVIOUS_VALUES_FILE = 'prev_vals.json'
 
 # if it hasn't been already, initialize the sound mixer
@@ -32,7 +33,7 @@ if pygame.mixer.get_init() is None:
     pygame.mixer.pre_init(44100, -16, 2, 2048)
     pygame.mixer.init()
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 class IconProxyStyle(QProxyStyle):
@@ -152,6 +153,7 @@ class CustomDialog(QDialog):
             dlg.layout.insertWidget(0, txt)
         dlg.setWindowTitle(title)
 
+        # noinspection SpellCheckingInspection
         lineEdit = spinBox.findChild(QLineEdit, 'qt_spinbox_lineedit')
         lineEdit.selectAll()
         spinBox.setFocus()
@@ -168,6 +170,7 @@ class CustomDialog(QDialog):
                 timeBox.setEnabled(False)
             else:
                 timeBox.setEnabled(True)
+                # noinspection SpellCheckingInspection
                 lineEdit = timeBox.findChild(QLineEdit, 'qt_spinbox_lineedit')
                 lineEdit.selectAll()
                 timeBox.setFocus()
@@ -327,9 +330,9 @@ class DrugTimer(QLabel):
     def updateText(self):
         hrs = self._duration.seconds // (60 * 60)
         r = self._duration.seconds - hrs * 60 * 60
-        mins = r // 60
-        secs = r - mins * 60
-        self.setText(self.__FORMAT.format(hrs, mins, secs))
+        minutes = r // 60
+        secs = r - minutes * 60
+        self.setText(self.__FORMAT.format(hrs, minutes, secs))
 
     # noinspection PyUnusedLocal
     def reset(self, event):
@@ -360,9 +363,9 @@ class DrugTimer(QLabel):
         if self._alarmSound is not None:
             self._alarmSound.play(-1)
 
-    def setAlarmThreshInMins(self, durInMins):
-        if durInMins is not None:
-            self._alarmThresh = durInMins * 60
+    def setAlarmThreshInMinutes(self, durInMinutes):
+        if durInMinutes is not None:
+            self._alarmThresh = durInMinutes * 60
         else:
             self._alarmThresh = None
 
@@ -485,12 +488,12 @@ class DrugPanel(QGroupBox):
             val, ok = CustomDialog.getTime(self, value=self._timer.alarmThreshold,
                                            text='Time before alarm')
             if ok:
-                self._timer.setAlarmThreshInMins(val)
+                self._timer.setAlarmThreshInMinutes(val)
                 self._enableAlarmButton.setText(self._ALARM_LABEL_ON.format(val))
             else:
                 self._enableAlarmButton.setChecked(False)
         else:
-            self._timer.setAlarmThreshInMins(None)
+            self._timer.setAlarmThreshInMinutes(None)
             self._enableAlarmButton.setText(self._ALARM_LABEL_OFF)
 
     # noinspection PyUnusedLocal
@@ -810,35 +813,35 @@ class PhysioMonitorMainScreen(QFrame):
         layout00.addLayout(layout10, stretch=0)
         layout00.addWidget(notebook, stretch=1)
 
-        for i, chan in enumerate(config['channels']):
+        for i, channel in enumerate(config['channels']):
             plot = PagedScope(
                 sampleFreq=config['acquisition']['sample-rate'],
-                windowSize=chan['window-size'],
-                linecolor=chan['line-color'],
-                linewidth=chan['line-width'],
-                scaling=chan['scale'],
-                offset=chan['offset'],
-                title=chan['label'],
-                units=chan['units'],
-                autoscale=chan['autoscale'],
-                ymin=chan['ymin'],
-                ymax=chan['ymax'],
-                remanence=chan['remanence'],
-                trigMode=chan['trigger-mode'],
-                trigLevel=chan['trigger-level'],
-                autoTrigLevel=chan['auto-trigger-level'],
-                trendWindowSize=chan['trend-window-size'],
-                trendPeriod=chan["trend-period"],
-                trendFunction=chan["trend-function"],
-                trendFuncKwargs=chan["trend-function-args"],
-                trendUnits=chan["trend-units"],
-                trendAutoscale=chan["trend-autoscale"],
-                trendYmin=chan["trend-ymin"],
-                trendYmax=chan["trend-ymax"],
-                alarmEnabled=chan['alarm-enabled'],
-                alarmLow=chan['alarm-low'],
-                alarmHigh=chan['alarm-high'],
-                alarmSoundFile=chan['alarm-sound-file']
+                windowSize=channel['window-size'],
+                linecolor=channel['line-color'],
+                linewidth=channel['line-width'],
+                scaling=channel['scale'],
+                offset=channel['offset'],
+                title=channel['label'],
+                units=channel['units'],
+                autoscale=channel['autoscale'],
+                ymin=channel['ymin'],
+                ymax=channel['ymax'],
+                persistence=channel['persistence'],
+                trigMode=channel['trigger-mode'],
+                trigLevel=channel['trigger-level'],
+                autoTrigLevel=channel['auto-trigger-level'],
+                trendWindowSize=channel['trend-window-size'],
+                trendPeriod=channel["trend-period"],
+                trendFunction=channel["trend-function"],
+                trendFuncKwargs=channel["trend-function-args"],
+                trendUnits=channel["trend-units"],
+                trendAutoscale=channel["trend-autoscale"],
+                trendYmin=channel["trend-ymin"],
+                trendYmax=channel["trend-ymax"],
+                alarmEnabled=channel['alarm-enabled'],
+                alarmLow=channel['alarm-low'],
+                alarmHigh=channel['alarm-high'],
+                alarmSoundFile=channel['alarm-sound-file']
             )
             self._graphLayout.addItem(plot, i, 1)
         self.setLayout(layout00)
@@ -857,12 +860,11 @@ class PhysioMonitorMainScreen(QFrame):
         self._graphLayout.append(data)
 
     def writePhysioToLog(self):
-        currTime = datetime.datetime.now().strftime("%H:%M:%S")
         texts = []
         for i in range(len(self._graphLayout.centralWidget.items)):
             plot: ScrollingScope = self._graphLayout.getItem(i, 1)
             value = plot.getLastTrendData()
-            texts.append('{:.1f} {:s}'.format(value, plot._trendUnits))
+            texts.append('{:.1f} {:s}'.format(value, plot.getTrendUnits()))
         self.writeToLog(*texts)
 
     def writeToLog(self, *args, sep='\t|\t'):

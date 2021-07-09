@@ -28,10 +28,10 @@ terminalConfig = {"DEFAULT": nidaqmx.constants.TerminalConfiguration.DEFAULT,
                   "PSEUDODIFFERENTIAL": nidaqmx.constants.TerminalConfiguration.PSEUDODIFFERENTIAL}
 
 
-class nistreamer(Streamer):
+class NIStreamer(Streamer):
     def __init__(self, config, buffer_size=1000):
         self.buffer_size = buffer_size
-        self.n_chans = len(config['hardware']['physical-channels'])
+        self.nbChannels = len(config['hardware']['physical-channels'])
         self.task = nidaqmx.Task()
         for channelPort, channelTerminal, channelRange in zip(config['hardware']["physical-channels"],
                                                               config['hardware']["physical-channel-terminal"],
@@ -45,11 +45,12 @@ class nistreamer(Streamer):
                                              sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS,
                                              samps_per_chan=self.buffer_size)
         self.stream = AnalogMultiChannelReader(self.task.in_stream)
-        self.data = np.empty((self.n_chans, 0))
+        self.data = np.empty((self.nbChannels, 0))
         self.task.register_every_n_samples_acquired_into_buffer_event(self.buffer_size, self.reading_task_callback)
 
+    # noinspection PyUnusedLocal
     def reading_task_callback(self, task_handle, every_n_samples_event_type, number_of_samples, callback_data):
-        buffer = np.empty(shape=(self.n_chans, number_of_samples))
+        buffer = np.empty(shape=(self.nbChannels, number_of_samples))
         self.stream.read_many_sample(buffer, number_of_samples)
         self.data = np.append(self.data, buffer, axis=1)
         return 0
@@ -66,16 +67,16 @@ class nistreamer(Streamer):
 
     def iterator(self):
         out = self.data
-        self.data = np.empty(shape=(self.n_chans, 0))
+        self.data = np.empty(shape=(self.nbChannels, 0))
         yield out
 
     def read(self):
         out = self.data
-        self.data = np.empty(shape=(self.n_chans, 0))
+        self.data = np.empty(shape=(self.nbChannels, 0))
         return out
 
 
-class nistreamerSin(nistreamer):
+class NIStreamerSin(NIStreamer):
     def __init__(self, config, buffer_size=1000, sin_freq=1.):
         super().__init__(config, buffer_size)
         self.task_out = nidaqmx.Task()
@@ -92,21 +93,33 @@ class nistreamerSin(nistreamer):
         self.writer.write_many_sample(v)
 
     def start(self):
-        super(nistreamerSin, self).start()
+        super(NIStreamerSin, self).start()
         self.task_out.start()
 
     def stop(self):
-        super(nistreamerSin, self).stop()
+        super(NIStreamerSin, self).stop()
         self.task_out.stop()
 
     def close(self):
-        super(nistreamerSin, self).close()
+        super(NIStreamerSin, self).close()
         self.task_out.close()
 
 
-class nistreamerPhysio(nistreamer):
-    def __init__(self, config, buffer_size=1000, nChan=1, sampleFreq=1000., filename="surgery.txt", nPoints=10000):
-        super(nistreamerPhysio, self).__init__(config, buffer_size)
+class NIStreamerPhysio(NIStreamer):
+    def __init__(self, config, buffer_size=1000, nChan=1, sampleFreq=1000., filename="file_streamer_data.txt",
+                 nPoints=10000):
+        """
+        Create a dummy streamer that outputs the values read from `filename` on the DAC(s) so that they can be read
+        back using the ADCs
+
+        :param config: configuration object to create the acquisition objects
+        :param buffer_size: buffer size
+        :param nChan: number of channels to output
+        :param sampleFreq: output rate (Hz)
+        :param filename: file containing the data to output
+        :param nPoints: number of points to output
+        """
+        super(NIStreamerPhysio, self).__init__(config, buffer_size)
 
         self._nChan = nChan
         self._sampleFreq = sampleFreq
@@ -124,16 +137,17 @@ class nistreamerPhysio(nistreamer):
         self.writer.write_many_sample(self._data)
 
     def start(self):
-        super(nistreamerPhysio, self).start()
+        super(NIStreamerPhysio, self).start()
         self.task_out.start()
 
     def stop(self):
-        super(nistreamerPhysio, self).stop()
+        super(NIStreamerPhysio, self).stop()
         self.task_out.stop()
 
     def close(self):
-        super(nistreamerPhysio, self).close()
+        super(NIStreamerPhysio, self).close()
         self.task_out.close()
 
 
-AVAIL_ACQ_MODULES = {**AVAIL_ACQ_MODULES, 'nidaq': nistreamer}
+# noinspection SpellCheckingInspection
+AVAIL_ACQ_MODULES = {**AVAIL_ACQ_MODULES, 'nidaqmx': NIStreamer}

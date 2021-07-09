@@ -1,10 +1,11 @@
 import os
 import struct
-
 from sampling import Streamer, deinterleave
 import comedi
 import numpy as np
 import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ComediError(Exception):
@@ -13,28 +14,21 @@ class ComediError(Exception):
 
 
 class CmdComediError(ComediError):
-    """Exception raised when a comedi command fails.
-
-    Attributes:
-        expr -- input expression in which the error occurred
-        msg  -- explanation of the error
-    """
-
+    """Exception raised when a comedi command fails."""
     def __init__(self, msg):
         Exception.__init__(self, msg)
 
 
 class ComediStreamer(Streamer):
-    # noinspection PyMissingConstructor
     def __init__(self, config, bufferSize=10000, start=True):
-        # logging.debug("in SurgeryFileStreamer __init__")
+        # logger.debug("in SurgeryFileStreamer __init__")
         self._remaining = []
         self._bufferSize = bufferSize
         self._config = config
-        self.__chanMaxValues = []
-        self.__chanRangeMins = []
-        self.__chanRangeMaxs = []
-        self.nbChans = len(self._config['channels'])
+        self.__channelMaxValues = []
+        self.__channelRangeMinValues = []
+        self.__channelRangeMaxValues = []
+        self.nbChannels = len(self._config['channels'])
         self.__paused = not start
 
         # configure the comedi device
@@ -44,13 +38,13 @@ class ComediStreamer(Streamer):
             raise IOError(comedi.comedi_strerror(comedi.comedi_errno()))
 
         # and get an appropriate subdevice
-        self._subdev = self._config['sub-device']
+        self._subdevice = self._config['sub-device']
 
-        for chan in self._config['channels']:
-            self.__chanMaxValues.append(comedi.comedi_get_maxdata(self._dev, self._subdev, chan['channel-id']))
-            temp = comedi.comedi_get_range(self._dev, self._subdev, chan['channel-id'], chan['gain'])
-            self.__chanRangeMins.append(temp.min)
-            self.__chanRangeMaxs.append(temp.max)
+        for channel in self._config['channels']:
+            self.__channelMaxValues.append(comedi.comedi_get_maxdata(self._dev, self._subdevice, channel['channel-id']))
+            temp = comedi.comedi_get_range(self._dev, self._subdevice, channel['channel-id'], channel['gain'])
+            self.__channelRangeMinValues.append(temp.min)
+            self.__channelRangeMaxValues.append(temp.max)
 
         # get a file-descriptor for reading
         self._fd = comedi.comedi_fileno(self._dev)
@@ -60,25 +54,27 @@ class ComediStreamer(Streamer):
             raise IOError(comedi.comedi_strerror(comedi.comedi_errno()))
 
         # create channel list
-        myChanList = comedi.chanlist(self.nbChans)
-        for i, chan in enumerate(self._config['channels']):
-            myChanList[i] = comedi.cr_pack(chan['channel-id'],
-                                           chan['gain'],
-                                           chan['ref'])
+        myChanList = comedi.chanlist(self.nbChannels)
+        for i, channel in enumerate(self._config['channels']):
+            myChanList[i] = comedi.cr_pack(channel['channel-id'],
+                                           channel['gain'],
+                                           channel['ref'])
         # create a command structure
         self._cmd = comedi.comedi_cmd_struct()
         ret = comedi.comedi_get_cmd_generic_timed(self._dev,
-                                                  self._subdev,
+                                                  self._subdevice,
                                                   self._cmd,
-                                                  self.nbChans,
+                                                  self.nbChannels,
                                                   int(1.e9 / self._config['sample-rate']))
         if ret:
             logging.error("comedi_get_cmd_generic failed")
             raise CmdComediError("comedi_get_cmd_generic failed")
 
+        # noinspection SpellCheckingInspection
         self._cmd.chanlist = myChanList  # adjust for our particular context
-        self._cmd.chanlist_len = self.nbChans
-        self._cmd.scan_end_arg = self.nbChans
+        # noinspection SpellCheckingInspection
+        self._cmd.chanlist_len = self.nbChannels
+        self._cmd.scan_end_arg = self.nbChannels
         self._cmd.stop_src = comedi.TRIG_NONE  # never stop
 
         # test our comedi command a few times.
@@ -89,7 +85,7 @@ class ComediStreamer(Streamer):
                 raise CmdComediError(comedi.comedi_strerror(comedi.comedi_errno()))
 
     def __del__(self):
-        # logging.debug("in SurgeryFileStreamer.__del__()")
+        # logger.debug("in SurgeryFileStreamer.__del__()")
         self.stop()
         ret = comedi.comedi_close(self._dev)
         if ret:
@@ -97,28 +93,28 @@ class ComediStreamer(Streamer):
             raise CmdComediError(comedi.comedi_strerror(comedi.comedi_errno()))
 
     def read(self):
-        out = np.empty((self.nbChans,))
+        out = np.empty((self.nbChannels,))
         if not self.__paused:
-            # logging.debug("in SamplingThread.read... reading next values")
+            # logger.debug("in SamplingThread.read... reading next values")
             line = os.read(self._fd, self._bufferSize)
             n = len(line) / 2  # 2 bytes per 'H'
-            # logging.debug("read %s(...) (%d bytes). data is %d items", line[:-5], len(line))
+            # logger.debug("read %s(...) (%d bytes). data is %d items", line[:-5], len(line))
             unpack = struct.unpack('%dH' % n, line)
-            # logging.debug("unpacking... got %d values", len(unpack))
+            # logger.debug("unpacking... got %d values", len(unpack))
             self._remaining.extend(unpack)
-            # logging.debug("de-interleaving...")
-            out, self._remaining = deinterleave(self._remaining, self.nbChans)
-            # logging.debug("returned a (%d,%d) array and kept %d for next round",
+            # logger.debug("de-interleaving...")
+            out, self._remaining = deinterleave(self._remaining, self.nbChannels)
+            # logger.debug("returned a (%d,%d) array and kept %d for next round",
             #               out.shape[0], out.shape[1], len(self._remaining))
             out = self.to_physical(out)
         return out
 
     def to_physical(self, inData):
         out = inData.astype(np.float64)
-        out /= np.reshape(self.__chanMaxValues, (self.nbChans, 1))
-        out *= np.reshape((np.array(self.__chanRangeMaxs) - np.array(self.__chanRangeMins)),
-                          (self.nbChans, 1))
-        out += np.reshape(self.__chanRangeMins, (self.nbChans, 1))
+        out /= np.reshape(self.__channelMaxValues, (self.nbChannels, 1))
+        out *= np.reshape((np.array(self.__channelRangeMaxValues) - np.array(self.__channelRangeMinValues)),
+                          (self.nbChannels, 1))
+        out += np.reshape(self.__channelRangeMinValues, (self.nbChannels, 1))
         return out
 
     def start(self):
@@ -131,7 +127,7 @@ class ComediStreamer(Streamer):
             self.__paused = False
 
     def stop(self):
-        ret = comedi.comedi_cancel(self._dev, self._subdev)
+        ret = comedi.comedi_cancel(self._dev, self._subdevice)
         if ret:
             logging.error(comedi.comedi_strerror(comedi.comedi_errno()))
             raise CmdComediError(comedi.comedi_strerror(comedi.comedi_errno()))

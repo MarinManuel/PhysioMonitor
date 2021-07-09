@@ -1,9 +1,12 @@
 import datetime
+import logging
 import os
 import re
 import typing
 from enum import IntEnum
 from tabulate import tabulate
+
+logger = logging.getLogger(__name__)
 
 
 class Drug(object):

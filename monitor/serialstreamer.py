@@ -1,5 +1,9 @@
-from sampling import Streamer, AVAIL_ACQ_MODULES
+import logging
+
+from sampling import Streamer
 import serial
+
+logger = logging.getLogger(__name__)
 
 
 class SerialStreamer(Streamer):
@@ -13,14 +17,10 @@ class SerialStreamer(Streamer):
         self.__paused = False
 
     def read(self):
-        pass
+        pass  # TODO
 
     def start(self):
         self.__paused = False
 
     def stop(self):
         self.__paused = True
-
-
-AVAIL_ACQ_MODULES = {**AVAIL_ACQ_MODULES, 'serial': SerialStreamer}
-
