@@ -149,42 +149,42 @@ class SyringePumpException(Exception):
     pass
 
 
-class valueOORException(SyringePumpException):
+class ValueOORException(SyringePumpException):
     pass
 
 
-class unknownCommandException(SyringePumpException):
+class UnknownCommandException(SyringePumpException):
     pass
 
 
-class pumpNotRunningException(SyringePumpException):
+class PumpNotRunningException(SyringePumpException):
     pass
 
 
-class pumpNotStoppedException(SyringePumpException):
+class PumpNotStoppedException(SyringePumpException):
     pass
 
 
-class pumpInvalidAnswerException(SyringePumpException):
+class PumpInvalidAnswerException(SyringePumpException):
     pass
 
 
-class syringeAlarmException(SyringePumpException):
+class SyringeAlarmException(SyringePumpException):
     pass
 
 
-class invalidCommandException(SyringePumpException):
+class InvalidCommandException(SyringePumpException):
     pass
 
 
-class unforseenException(SyringePumpException):
+class UnforeseenException(SyringePumpException):
     pass
 
 
 class DummyPump(SyringePump):
     # noinspection PyMissingConstructor
-    def __init__(self, serialport: serial.Serial):
-        self.serial = serialport
+    def __init__(self, serial_port: serial.Serial):
+        self.serial = serial_port
         self.currState = 0
         self.nextState = 1
         self.currDiameter = 10
@@ -213,14 +213,14 @@ class DummyPump(SyringePump):
         if self.currState == 0:
             self.currState = self.nextState
         else:
-            raise invalidCommandException("Pump already started")
+            raise InvalidCommandException("Pump already started")
 
     def stop(self):
         if self.currState == 1 or self.currState == 2:
             self.nextState = self.currState
             self.currState = 0
         else:
-            raise invalidCommandException("Pump already stopped")
+            raise InvalidCommandException("Pump already stopped")
 
     def reverse(self):
         if not self.currState == 0:
@@ -250,19 +250,19 @@ class DummyPump(SyringePump):
             else:
                 self.nextState = inValue
         else:
-            raise unknownCommandException("direction should be either INFUSION or WITHDRAWAL")
+            raise UnknownCommandException("direction should be either INFUSION or WITHDRAWAL")
 
     def setSyringeDiameter(self, inValue: int):
         if inValue <= 0:
-            raise valueOORException("Diameter must be a positive value")
+            raise ValueOORException("Diameter must be a positive value")
         else:
             self.currDiameter = inValue
 
     def setRate(self, inValue: int, inUnits: int):
         if inValue <= 0:
-            raise valueOORException("Rate must be a positive value")
+            raise ValueOORException("Rate must be a positive value")
         if inUnits < 0 or inUnits > (len(self.UNITS) - 1):
-            raise valueOORException("Units must be an integer between %d and %d" % (0, len(self.UNITS) - 1))
+            raise ValueOORException("Units must be an integer between %d and %d" % (0, len(self.UNITS) - 1))
         self.currUnits = inValue
         self.currRate = inValue
 
@@ -321,9 +321,9 @@ class Model11plusPump(SyringePump):
     __CMD_QUIT_REMOTE = 'KEY\r'
 
     # noinspection PyMissingConstructor
-    def __init__(self, serialport):
-        self.serial = serialport
-        if serialport is not None:
+    def __init__(self, serial_port):
+        self.serial = serial_port
+        if serial_port is not None:
             self.serial.flush()
             self.serial.flushInput()
             self.serial.flushOutput()
@@ -355,10 +355,10 @@ class Model11plusPump(SyringePump):
         # print "reading %d bytes in response: \"%s\""%(nbChar,repr(ans)) #DEBUG
         if ans.startswith(self.__ANS_OOR):
             # print "OOR Error encountered!" #DEBUG
-            raise valueOORException()
+            raise ValueOORException()
         elif ans.startswith(self.__ANS_UNKNOWN):
             # print "Unknown command Error encountered!" #DEBUG
-            raise unknownCommandException()
+            raise UnknownCommandException()
         else:
             return ans
 
@@ -375,7 +375,7 @@ class Model11plusPump(SyringePump):
         if ans == "FWD" or ans == "REV":
             pass
         else:
-            raise pumpNotRunningException()
+            raise PumpNotRunningException()
 
     def start(self):
         self.run()
@@ -386,7 +386,7 @@ class Model11plusPump(SyringePump):
         if ans == "STOPPED":
             pass
         else:
-            raise pumpNotStoppedException()
+            raise PumpNotStoppedException()
 
     def clearAccumulatedVolume(self):
         self.sendCommand(self.__CMD_CLEAR_VOLUME)
@@ -402,10 +402,10 @@ class Model11plusPump(SyringePump):
 
     def setRate(self, inValue, inUnits):
         if inValue <= 0:
-            raise valueOORException("Rate must be a positive value")
+            raise ValueOORException("Rate must be a positive value")
         if inUnits < 0 or (inUnits > len(self.UNITS) - 1):
-            raise valueOORException("Units must be an integer between %d and %d" % (0, len(self.UNITS) - 1))
-        self.sendCommand((self.__CMD_SET_RATE[self.currUnits]) % inValue)  # FIXME: this needs fixin'
+            raise ValueOORException("Units must be an integer between %d and %d" % (0, len(self.UNITS) - 1))
+        self.sendCommand((self.__CMD_SET_RATE[self.currUnits]) % inValue)  # FIXME: this needs fixing
 
     def setTargetVolume(self, inValue):
         self.sendCommand(self.__CMD_SET_TARGET % inValue)
@@ -551,7 +551,7 @@ class AladdinPump(SyringePump):
     __CMD_GET_DIAMETER = 'DIA\r'  # get the syringe diameter
     __CMD_GET_PHASE = 'PHN\r'  # get the phase number
     __CMD_GET_PHASEFUNCTION = 'FUN\r'  # get the program's phase function
-    __CMD_GET_RATE = 'RAT\r'  # get the rate of inf/withd, including unit
+    __CMD_GET_RATE = 'RAT\r'  # get the rate of inf/withdraw, including unit
     __CMD_GET_TARVOL = 'VOL\r'  # get target volume, incl units
     __CMD_GET_DIR = 'DIR\r'  # get the direction of the pump
     __CMD_GET_DISVOL = 'DIS\r'  # get the volume dispensed in infusion as well as in withdrawal
@@ -570,7 +570,7 @@ class AladdinPump(SyringePump):
     __CMD_SET_PHASE = 'PHN%d\r'  # set the phase number
     __CMD_SET_PHASEFUNCTION = 'FUN%d\r'  # set the program's phase function
     # ... bunch of other instructions could be here. cf p50 of the manual
-    __CMD_SET_RATE = 'RAT%s%s\r'  # set the rate of inf/withdr, including unit
+    __CMD_SET_RATE = 'RAT%s%s\r'  # set the rate of inf/withdraw, including unit
     __CMD_SET_TARVOL = 'VOL%s\r'  # set target volume, units depends on diameter
     __CMD_SET_DIR = 'DIR%s\r'  # set the direction of the pump
     __CMD_SET_RUNPHASE = 'RUN%d\r'  # start the pumping program
@@ -593,10 +593,10 @@ class AladdinPump(SyringePump):
         return '{:05.3f}'.format(val)[:5]
 
     # noinspection PyMissingConstructor
-    def __init__(self, serialport, address=0):
+    def __init__(self, serial_port, address=0):
         self.address = address
         self.ansParser = re.compile(self.__ANS_PATTERN)
-        self.serial = serialport
+        self.serial = serial_port
         if self.serial is not None:
             self.serial.flush()
             self.serial.flushInput()
@@ -620,7 +620,7 @@ class AladdinPump(SyringePump):
 
     def sendCommand(self, inCommand, returnAll=False):
         if self.serial is None:
-            raise unforseenException('No serial port connected')
+            raise UnforeseenException('No serial port connected')
         self.serial.flush()
         self.serial.flushInput()
         self.serial.flushOutput()
@@ -634,21 +634,21 @@ class AladdinPump(SyringePump):
             nbBytes += nbChar
             ans += self.serial.read(nbChar).decode()
             if (time.time() - sendTime) > self._readTimeout:
-                raise readTimeoutException("Timeout while waiting for an answer")
+                raise ReadTimeoutException("Timeout while waiting for an answer")
         self.serial.flush()
         self.serial.flushInput()
         self.serial.flushOutput()
         logging.debug("<<reading %d bytes in response: \"%s\"" % (nbBytes, repr(ans)))
         address, status, message = self.parse(ans)
         if 'A?' in status:
-            raise alarmException(status)
+            raise AlarmException(status)
         if '?' in message:
             if '?OOR' in message:
-                raise valueOORException(message)
+                raise ValueOORException(message)
             elif '?NA' in message:
-                raise invalidCommandException(message)
+                raise InvalidCommandException(message)
             else:
-                raise unforseenException(message)
+                raise UnforeseenException(message)
         if returnAll:
             return address, status, message
         else:
@@ -657,7 +657,7 @@ class AladdinPump(SyringePump):
     def parse(self, inVal):
         m = self.ansParser.match(inVal)
         if m is None:
-            raise pumpInvalidAnswerException
+            raise PumpInvalidAnswerException
         # noinspection PyStringFormat
         logging.debug("<<received valid answer from pump [%02s]. Status is '%s' and answer is '%s'" % m.groups())
         return m.groups()
@@ -665,18 +665,18 @@ class AladdinPump(SyringePump):
     def start(self):
         _, status, _ = self.sendCommand(self.__CMD_SET_RUNPHASE % 1, True)
         if 'A?' in status:
-            raise syringeAlarmException(status)
+            raise SyringeAlarmException(status)
         if not ('I' in status or 'W' in status):
-            raise unforseenException("Pump did not start!")
+            raise UnforeseenException("Pump did not start!")
 
     def stop(self):
         _, status, _ = self.sendCommand(self.__CMD_SET_STOP, True)
         if 'A?' in status:
-            raise aladdinAlarmException(status)
+            raise AladdinAlarmException(status)
         if '?' in status:
-            raise aladdinErrorException(status)
+            raise AladdinErrorException(status)
         if 'P' not in status:
-            raise unforseenException("Pump did not stop")
+            raise UnforeseenException("Pump did not stop")
 
     def reverse(self):
         self.sendCommand(self.__CMD_SET_DIR % self.__ANS_DIR_REV)
@@ -698,26 +698,26 @@ class AladdinPump(SyringePump):
         elif inValue == self.STATE.WITHDRAWING:
             self.sendCommand(self.__CMD_SET_DIR % self.__ANS_DIR_WDR)
         else:
-            raise invalidCommandException()
+            raise InvalidCommandException()
 
     def setSyringeDiameter(self, inValue):
         if inValue <= 0:
-            raise valueOORException("Diameter must be a positive float value")
+            raise ValueOORException("Diameter must be a positive float value")
         else:
             self.sendCommand(self.__CMD_SET_DIAMETER % (self.format_float(inValue)))
 
     def setRate(self, inValue, inUnits):
         if inValue <= 0:
-            raise valueOORException("Rate must be a positive value")
+            raise ValueOORException("Rate must be a positive value")
         if inUnits < 0 or inUnits > len(self.UNITS) - 1:
-            raise valueOORException("Units must be an integer between %d and %d" % (0, len(self.UNITS) - 1))
+            raise ValueOORException("Units must be an integer between %d and %d" % (0, len(self.UNITS) - 1))
         ans = self.sendCommand(self.__CMD_SET_RATE % (self.format_float(inValue), self.__ANS_UNITS[int(inUnits)]))
         if '?' in ans:
-            raise invalidCommandException(ans)
+            raise InvalidCommandException(ans)
 
     def setTargetVolume(self, inValue):
         if inValue <= 0:
-            raise valueOORException("Target volume must be a positive float value")
+            raise ValueOORException("Target volume must be a positive float value")
         else:
             self.sendCommand(self.__CMD_SET_TARVOL % (self.format_float(inValue)))
 
@@ -741,7 +741,7 @@ class AladdinPump(SyringePump):
         elif ans[-2:] == self.__ANS_UNITS_ULMIN:
             return 3
         else:
-            raise unforseenException("ERROR while parsing rate value")
+            raise UnforeseenException("ERROR while parsing rate value")
 
     def getAccumulatedInfusionVolume(self):
         ans = self.sendCommand(self.__CMD_GET_DISVOL)
@@ -749,7 +749,7 @@ class AladdinPump(SyringePump):
         if m:
             return float(m.group(1))
         else:
-            raise unforseenException("Error while parsing accumulated volume")
+            raise UnforeseenException("Error while parsing accumulated volume")
 
     def getAccumulatedWithdrawalVolume(self):
         ans = self.sendCommand(self.__CMD_GET_DISVOL)
@@ -757,7 +757,7 @@ class AladdinPump(SyringePump):
         if m:
             return float(m.group(2))
         else:
-            raise unforseenException("Error while parsing accumulated volume")
+            raise UnforeseenException("Error while parsing accumulated volume")
 
     def getAccumulatedVolume(self):
         return self.getAccumulatedInfusionVolume()
@@ -785,7 +785,7 @@ class AladdinPump(SyringePump):
         ans = self.sendCommand(self.__CMD_GET_VERSION)
         m = re.match(self.__ANS_VER_PATTERN, ans)
         if not m:
-            raise unforseenException("Error while parsing version number")
+            raise UnforeseenException("Error while parsing version number")
         else:
             # noinspection PyStringFormat
             return 'Model #%s, firmware v%s.%s' % m.groups()
@@ -794,7 +794,7 @@ class AladdinPump(SyringePump):
         self.sendCommand(self.__CMD_SET_BUZZ % (1, nbBeeps))
 
 
-class aladdinErrorException(SyringePumpException):
+class AladdinErrorException(SyringePumpException):
     def __init__(self, status):
         if status == '?COM':
             Exception.__init__(self, "Invalid communications packet received")
@@ -810,15 +810,15 @@ class aladdinErrorException(SyringePumpException):
             Exception.__init__(self, status)
 
 
-class alarmException(SyringePumpException):
+class AlarmException(SyringePumpException):
     pass
 
 
-class readTimeoutException(SyringePumpException):
+class ReadTimeoutException(SyringePumpException):
     pass
 
 
-class aladdinAlarmException(SyringePumpException):
+class AladdinAlarmException(SyringePumpException):
     def __init__(self, status):
         if status == 'A?R':
             Exception.__init__(self, "Pump was reset")
