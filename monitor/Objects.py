@@ -3,7 +3,6 @@ import os
 import re
 import typing
 from enum import IntEnum
-
 from tabulate import tabulate
 
 

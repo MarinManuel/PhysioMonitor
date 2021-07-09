@@ -21,7 +21,6 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QDialog, QDoubleSpinBo
 from GUI.Models import DoubleSpinBoxDelegate, DrugTableModel
 from GUI.scope import ScopeLayoutWidget, PagedScope, ScrollingScope
 from monitor import SyringePumps
-# from monitor.ComediObjects import ComediStreamer
 from monitor.Objects import Drug, Sex, Mouse, LogFile
 from monitor.SyringePumps import SyringePumpException, AVAIL_PUMPS
 from monitor.sampling import AVAIL_ACQ_MODULES
@@ -409,7 +408,7 @@ class DrugPanel(QGroupBox):
         self._drugVolume = drugVolume
         self._injTime = None
         self._logFile = logFile
-        self._LOG_FORMAT = "{time}\t{drugVolume} μL\t{drugName}\n"
+        self._LOG_FORMAT = "{time}\t|\t{drugVolume:>5.1f} μL\t{drugName}\n"
         if alarmSoundFile is not None and os.path.isfile(alarmSoundFile):
             self._alarmSound = pygame.mixer.Sound(alarmSoundFile)
         else:
@@ -565,7 +564,7 @@ class DrugPumpPanel(DrugPanel):
                                                                     drugName=self._drugName,
                                                                     rate=self._perfRateSpinBox.value(),
                                                                     units=self._perfRateUnitsComboBox.currentText()))
-            except SyringePumps.valueOORException:
+            except SyringePumps.ValueOORException:
                 # noinspection PyTypeChecker
                 QMessageBox.information(None, 'Value OOR', 'ERROR: value is out of range for pump')
                 self._perfRateSpinBox.setFocus()
@@ -614,7 +613,7 @@ class DrugPumpPanel(DrugPanel):
             self.pump.setTargetVolume(volume / 1000)  # volume is in uL but TargetVolume is in mL
             self.pump.start()
             super().doInjectDrug(volume)
-        except SyringePumps.valueOORException:
+        except SyringePumps.ValueOORException:
             # noinspection PyTypeChecker
             QMessageBox.warning(None, "Value out of range", 'Cannot inject, value out of range')
         finally:
@@ -729,7 +728,7 @@ class PhysioMonitorMainScreen(QFrame):
             while not success:
                 for _ in range(3):
                     try:
-                        pump = AVAIL_PUMPS[model](serialport=self.serialPorts[pump_conf['serial-port']])
+                        pump = AVAIL_PUMPS[model](serial_port=self.serialPorts[pump_conf['serial-port']])
                         pump.isRunning()  # check that pump is working, should raise Exception if not
                         success = True
                         pump.doBeep()
@@ -750,7 +749,7 @@ class PhysioMonitorMainScreen(QFrame):
 
         # Timer for dumping physio values to log
         self.__physioToLogTimer = QTimer()
-        self.__physioToLogTimer.timeout.connect(self._writePhysioToLog)
+        self.__physioToLogTimer.timeout.connect(self.writePhysioToLog)
 
         #
         # UI elements
@@ -859,12 +858,16 @@ class PhysioMonitorMainScreen(QFrame):
 
     def writePhysioToLog(self):
         currTime = datetime.datetime.now().strftime("%H:%M:%S")
-        text = ''
+        texts = []
         for i in range(len(self._graphLayout.centralWidget.items)):
             plot: ScrollingScope = self._graphLayout.getItem(i, 1)
             value = plot.getLastTrendData()
-            text += '{:.1f} {:s} | '.format(value, plot._trendUnits)
-        self.logFile.append('{:s}\t{:s}\n'.format(currTime, text))
+            texts.append('{:.1f} {:s}'.format(value, plot._trendUnits))
+        self.writeToLog(*texts)
+
+    def writeToLog(self, *args, sep='\t|\t'):
+        currTime = datetime.datetime.now().strftime("%H:%M:%S")
+        self.logFile.append(sep.join([currTime]+list(args)))
 
     def addNote(self):
         text, ok = QInputDialog.getText(self, 'Add a note to the log', 'Note:')

@@ -4,7 +4,7 @@ import nidaqmx.constants
 from nidaqmx.stream_readers import AnalogMultiChannelReader
 from nidaqmx.stream_writers import AnalogMultiChannelWriter
 
-from monitor.sampling import Streamer
+from sampling import Streamer, AVAIL_ACQ_MODULES
 import numpy as np
 import pandas as pd
 
@@ -134,3 +134,6 @@ class nistreamerPhysio(nistreamer):
     def close(self):
         super(nistreamerPhysio, self).close()
         self.task_out.close()
+
+
+AVAIL_ACQ_MODULES = {**AVAIL_ACQ_MODULES, 'nidaq': nistreamer}
