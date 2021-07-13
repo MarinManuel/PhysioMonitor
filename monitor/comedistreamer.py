@@ -21,7 +21,7 @@ class CmdComediError(ComediError):
 
 class ComediStreamer(Streamer):
     def __init__(self, config, bufferSize=10000, start=True):
-        # logger.debug("in SurgeryFileStreamer __init__")
+        # logger.debug("in DemoStreamer __init__")
         self._remaining = []
         self._bufferSize = bufferSize
         self._config = config
@@ -85,7 +85,7 @@ class ComediStreamer(Streamer):
                 raise CmdComediError(comedi.comedi_strerror(comedi.comedi_errno()))
 
     def __del__(self):
-        # logger.debug("in SurgeryFileStreamer.__del__()")
+        # logger.debug("in DemoStreamer.__del__()")
         self.stop()
         ret = comedi.comedi_close(self._dev)
         if ret:

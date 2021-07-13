@@ -1,22 +1,20 @@
-# -*- coding: utf-8 -*-
 import datetime
 import json
 import logging
 import os
-import threading
-import time
-
 import pygame
 import serial
+import threading
+import time
 from PyQt5 import uic
-from PyQt5.QtCore import QTimer, QSize, QRect, QModelIndex, QDate, QStringListModel
+from PyQt5.QtCore import QTimer, QRect, QModelIndex, QDate, QStringListModel, QSize
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QIcon, QCursor, QFont, QFontDatabase, QCloseEvent
+from PyQt5.QtGui import QIcon, QCursor, QFont, QCloseEvent
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QDialog, QDoubleSpinBox, QLineEdit, QPushButton, \
-    QHBoxLayout, QSpinBox, QDialogButtonBox, QGridLayout, QSizePolicy, \
-    QRadioButton, QGroupBox, QStyle, QPlainTextEdit, QTabWidget, QScrollArea, QInputDialog, QFrame, QApplication, \
+    QSpinBox, QDialogButtonBox, QGridLayout, QSizePolicy, \
+    QRadioButton, QStyle, QPlainTextEdit, QInputDialog, QApplication, \
     QCheckBox, QProxyStyle, QHeaderView, QFileDialog, QComboBox, QDateEdit, QButtonGroup, QTextEdit, QTableView, \
-    QMessageBox
+    QMessageBox, QMainWindow
 
 from GUI.Models import DoubleSpinBoxDelegate, DrugTableModel
 from GUI.scope import ScopeLayoutWidget, PagedScope, ScrollingScope
@@ -320,8 +318,7 @@ class DrugTimer(QLabel):
         self._clockTimer.timerEvent = self.onClockTimer
         self.mouseDoubleClickEvent = self.reset
         self._alarmSound = None
-        if alarmSoundFile is not None and os.path.isfile(alarmSoundFile):
-            self._alarmSound = pygame.mixer.Sound(alarmSoundFile)
+        self.setAlarmSoundFile(alarmSoundFile)
 
     def start(self):
         self._startTime = datetime.datetime.today()
@@ -389,75 +386,80 @@ class DrugTimer(QLabel):
     def alarmThreshold(self):
         return self._alarmThresh
 
+    @property
+    def alarmSound(self):
+        return self._alarmSound
 
-class DrugPanel(QGroupBox):
+    def setAlarmSoundFile(self, alarmSoundFile):
+        if alarmSoundFile is not None and os.path.isfile(alarmSoundFile):
+            self._alarmSound = pygame.mixer.Sound(alarmSoundFile)
+
+
+class PumpTimer(DrugTimer):
+    def __init__(self, parent, alarmThresh=None, alarmSoundFile=None):
+        super().__init__(parent=parent, alarmThresh=alarmThresh, alarmSoundFile=alarmSoundFile)
+        self.pumpPanel = None
+        self._autoInject = False
+
+    def setup(self, pumpPanel, alarmThresh=None, alarmSoundFile=None):
+        self.pumpPanel = pumpPanel
+        self.setAlarmThreshInMinutes(alarmThresh)
+        self.setAlarmSoundFile(alarmSoundFile)
+
+    @property
+    def autoInject(self):
+        return self._autoInject
+
+    @autoInject.setter
+    def autoInject(self, value):
+        self._autoInject = value
+
+    def triggerAlarm(self):
+        # logger.debug('in PumpTimer.triggerAlarm()')
+        if self.autoInject:
+            # logger.debug('autoInject==True, injecting...')
+            self.pumpPanel.onFullDoseButtonClick(None)
+
+
+class DrugPanel(QWidget):
+    _fullDoseButton: QPushButton
+    _halfDoseButton: QPushButton
+    _customDoseButton: QPushButton
+    _timer: DrugTimer
+    _alarmButton: QPushButton
+    _drugNameLabel: QLabel
+
+    _drugName: str
+    _drugVolume: float
+    _logFile: None
+
     def __init__(self, parent, drugName, drugVolume, alarmSoundFile=None, logFile: LogFile = None):
         super().__init__(parent)
+        uic.loadUi('./GUI/DrugPanel.ui', self)
+
         self._LABEL_FORMAT = "{drugName} ({drugVolume:.0f} μL)"
-        self.setStyleSheet("""
-        QGroupBox {
-            margin-top: 1.5em; /* leave space at the top for the title */
-            font-size: large;
-            font-weight: bold;
-        }
-        
-        QGroupBox::title {
-            bottom: 1em;
-        }
-        """)
         self._ALARM_LABEL_ON = "Alarm\n({:.0f} min)"
-        self._ALARM_LABEL_OFF = "Alarm\n(...)"
+        self._ALARM_LABEL_OFF = "Set\nalarm"
         self._drugName = drugName
         self._drugVolume = drugVolume
         self._injTime = None
         self._logFile = logFile
         self._LOG_FORMAT = "{time}\t|\t{drugVolume:>5.1f} μL\t{drugName}\n"
-        if alarmSoundFile is not None and os.path.isfile(alarmSoundFile):
-            self._alarmSound = pygame.mixer.Sound(alarmSoundFile)
-        else:
-            self._alarmSound = None
 
-        self.setTitle(self._LABEL_FORMAT.format(drugName=self._drugName, drugVolume=self._drugVolume))
-        self.mouseDoubleClickEvent = self.onDrugLabelClick
+        self._drugNameLabel.setText(self._LABEL_FORMAT.format(drugName=self._drugName, drugVolume=self._drugVolume))
+        self._drugNameLabel.mouseDoubleClickEvent = self.onDrugLabelClick
+        self._timer.setAlarmSoundFile(alarmSoundFile)
 
-        self._fullDoseButton = QPushButton(self)
-        self._fullDoseButton.setText('Full dose')
-        self._halfDoseButton = QPushButton(self)
-        self._halfDoseButton.setText('1/2 dose')
-        self._customDoseButton = QPushButton(self)
-        self._customDoseButton.setText('...')
-        self._fullDoseButton.clicked.connect(self.onFullDoseButtonClick)
-        self._halfDoseButton.clicked.connect(self.onHalfDoseButtonClick)
-        self._customDoseButton.clicked.connect(self.onCustomDoseButtonClick)
-
-        self._timer = DrugTimer(self, alarmSoundFile=alarmSoundFile)
-
-        self._enableAlarmButton = QPushButton(self._ALARM_LABEL_OFF, self)
-        self._enableAlarmButton.setCheckable(True)
-        self._enableAlarmButton.setFlat(True)
         ico = QIcon()
         ico.addFile("./media/alarm-clock-OFF.png", state=QIcon.Off)
         ico.addFile("./media/alarm-clock-ON.png", state=QIcon.On)
-        self._enableAlarmButton.setIcon(ico)
-        self._enableAlarmButton.setIconSize(QSize(25, 25))
-        self._enableAlarmButton.clicked.connect(self.onChoiceAlarm)
+        self._alarmButton.setIcon(ico)
+        self._alarmButton.setIconSize(QSize(20, 20))
 
-        hbox1 = QHBoxLayout()
-        hbox2 = QHBoxLayout()
-        vbox = QVBoxLayout()
-        for box in [hbox1, hbox2, vbox]:
-            box.setSpacing(0)
-            box.setContentsMargins(0, 0, 0, 0)
-
-        hbox1.addWidget(self._fullDoseButton)
-        hbox1.addWidget(self._halfDoseButton)
-        hbox1.addWidget(self._customDoseButton)
-        hbox2.addWidget(self._timer)
-        hbox2.addWidget(self._enableAlarmButton)
-        vbox.addLayout(hbox1)
-        vbox.addLayout(hbox2)
-        self.setLayout(vbox)
-        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self._fullDoseButton.clicked.connect(self.onFullDoseButtonClick)
+        self._halfDoseButton.clicked.connect(self.onHalfDoseButtonClick)
+        self._customDoseButton.clicked.connect(self.onCustomDoseButtonClick)
+        self._alarmButton.toggled.connect(self.onChoiceAlarm)
 
     def doInjectDrug(self, volume):
         currTime = datetime.datetime.now().strftime("%H:%M:%S")
@@ -484,17 +486,17 @@ class DrugPanel(QGroupBox):
 
     # noinspection PyUnusedLocal
     def onChoiceAlarm(self, event):
-        if self._enableAlarmButton.isChecked():
+        if self._alarmButton.isChecked():
             val, ok = CustomDialog.getTime(self, value=self._timer.alarmThreshold,
                                            text='Time before alarm')
             if ok:
                 self._timer.setAlarmThreshInMinutes(val)
-                self._enableAlarmButton.setText(self._ALARM_LABEL_ON.format(val))
+                self._alarmButton.setText(self._ALARM_LABEL_ON.format(val))
             else:
-                self._enableAlarmButton.setChecked(False)
+                self._alarmButton.setChecked(False)
         else:
             self._timer.setAlarmThreshInMinutes(None)
-            self._enableAlarmButton.setText(self._ALARM_LABEL_OFF)
+            self._alarmButton.setText(self._ALARM_LABEL_OFF)
 
     # noinspection PyUnusedLocal
     def onDrugLabelClick(self, event):
@@ -502,55 +504,71 @@ class DrugPanel(QGroupBox):
         if ok == QDialog.Accepted:
             self._drugName = drugName
             self._drugVolume = drugVolume
-            self.setTitle(self._LABEL_FORMAT.format(drugName=self._drugName, drugVolume=self._drugVolume))
+            self._drugNameLabel.setText(self._LABEL_FORMAT.format(drugName=self._drugName, drugVolume=self._drugVolume))
 
 
-class DrugPumpPanel(DrugPanel):
+class DrugPumpPanel(QWidget):
+    _fullDoseButton: QPushButton
+    _halfDoseButton: QPushButton
+    _customDoseButton: QPushButton
+    _timer: PumpTimer
+    _alarmButton: QPushButton
+    _drugNameLabel: QLabel
+    _autoInjectCheckBox: QCheckBox
+    _perfRateSpinBox: QDoubleSpinBox
+    _perfUnitComboBox: QComboBox
+    _startPerfButton: QPushButton
+    _pumpLabel: QLabel
+
     def __init__(self, parent, drugName, drugVolume, pump: SyringePumps.SyringePump, alarmSoundFile=None, logFile=None):
         drugVolume = float(drugVolume)
-        super().__init__(parent, drugName, drugVolume, alarmSoundFile, logFile)
+        super().__init__(parent)
+        self._LABEL_FORMAT = "{drugName} ({drugVolume:.0f} μL)"
+        self._ALARM_LABEL_ON = "Alarm\n({:.0f} min)"
+        self._ALARM_LABEL_OFF = "Set\nalarm"
+        self._drugName = drugName
+        self._drugVolume = drugVolume
+        self._injTime = None
+        self._logFile = logFile
+        self._LOG_FORMAT = "{time}\t|\t{drugVolume:>5.1f} μL\t{drugName}\n"
+
+        self._drugNameLabel.setText(self._LABEL_FORMAT.format(drugName=self._drugName, drugVolume=self._drugVolume))
+        self._drugNameLabel.mouseDoubleClickEvent = self.onDrugLabelClick
+        self._timer.setup(pumpPanel=self, alarmThresh=None, alarmSoundFile=alarmSoundFile)
+
+        ico = QIcon()
+        ico.addFile("./media/alarm-clock-OFF.png", state=QIcon.Off)
+        ico.addFile("./media/alarm-clock-ON.png", state=QIcon.On)
+        self._alarmButton.setIcon(ico)
+        self._alarmButton.setIconSize(QSize(20, 20))
+
+        self._fullDoseButton.clicked.connect(self.onFullDoseButtonClick)
+        self._halfDoseButton.clicked.connect(self.onHalfDoseButtonClick)
+        self._customDoseButton.clicked.connect(self.onCustomDoseButtonClick)
+        self._alarmButton.toggled.connect(self.onChoiceAlarm)
+
         self._START_PERF_FORMAT = "{time}\t>> Start perf ({rate:.2f} {units})\t{drugName}\n"
         self._STOP_PERF_FORMAT = "{time}\t<< End perf\t{drugName}\n"
-        self.pump = pump
-        self.setStyleSheet(self.styleSheet() + """
-            QGroupBox {
-                background-color: #C1C9E2;
-            }
-            """)
+        self._pump = pump
+        self._drugName = drugName
+        self._drugVolume = drugVolume
+        self._injTime = None
+        self._logFile = logFile
+        self._timer.setup(pumpPanel=self, alarmSoundFile=alarmSoundFile)
 
-        newTimer = PumpTimer(parent=self, pumpPanel=self, alarmSoundFile=alarmSoundFile)
-        self.layout().replaceWidget(self._timer, newTimer)
-        self._timer.deleteLater()
-        self._timer = newTimer
-
-        self._autoInjectCheckBox = QCheckBox("Auto-inject")
-        self._autoInjectCheckBox.setIcon(self.style().standardIcon(QStyle.SP_MediaSkipForward))
-        self._autoInjectCheckBox.setStyle(IconProxyStyle(self._autoInjectCheckBox.style()))
-        self._autoInjectCheckBox.toggled.connect(self.onToggleAutoInject)
-        self.layout().addWidget(self._autoInjectCheckBox)
-
-        self._perfRateSpinBox = QDoubleSpinBox()
-        self._perfRateSpinBox.setDecimals(3)
+        for widget in [self._autoInjectCheckBox, self._fullDoseButton, self._halfDoseButton, self._startPerfButton]:
+            widget.setStyle(IconProxyStyle(widget.style()))
         self._perfRateSpinBox.setMinimum(self.pump.minVal)
         self._perfRateSpinBox.setMaximum(self.pump.maxVal)
-        self._perfRateUnitsComboBox = QComboBox()
-        self._perfStartButton = QPushButton("Start Perf")
-        self._perfStartButton.setCheckable(True)
-        self._perfStartButton.clicked.connect(self.onTogglePerf)
 
         self._abortInjectButton = QPushButton('Abort')
         self._abortInjectButton.setIcon(self.style().standardIcon(QStyle.SP_BrowserStop))
         self._abortInjectButton.setVisible(False)
         self._abortInjectButton.clicked.connect(self.abortInjection)
 
-        box = QHBoxLayout()
-        box.addWidget(self._perfRateSpinBox)
-        box.addWidget(self._perfRateUnitsComboBox)
-        box.addWidget(self._perfStartButton)
-        self.layout().insertWidget(1, self._abortInjectButton)
-        self.layout().insertLayout(2, box)
+        self._startPerfButton.toggled.connect(self.onTogglePerf)
+        self._autoInjectCheckBox.toggled = self.onToggleAutoInject
 
-        self._perfRateUnitsComboBox.addItems(self.pump.getPossibleUnits())
         self.updateFromPump()
 
     def onTogglePerf(self):
@@ -577,9 +595,9 @@ class DrugPumpPanel(DrugPanel):
         self._timer.autoInject = checked
 
     def updateFromPump(self):
-        currRate = self.pump.getRate()
-        currUnits = self.pump.getUnits()
-        currDir = self.pump.getDirection()
+        currRate = self._pump.getRate()
+        currUnits = self._pump.getUnits()
+        currDir = self._pump.getDirection()
         self._perfRateSpinBox.setValue(currRate)
         self._perfRateUnitsComboBox.setCurrentIndex(currUnits)
         if currDir != 0:
@@ -589,32 +607,20 @@ class DrugPumpPanel(DrugPanel):
             self._perfStartButton.setChecked(False)
             self.enablePerfusionButtons(True)
 
-    def showEvent(self, event):
-        super().showEvent(event)
-        # this code adds an icon to the button to distinguish them from the "manual" drug panel buttons
-        # unfortunately, that increases their size and messes up the layout.
-        # so we're saving their size before the icon, and restoring the original size after inserting the icon
-        full_size = self._fullDoseButton.size()
-        half_size = self._halfDoseButton.size()
-        self._fullDoseButton.setIcon(self.style().standardIcon(QStyle.SP_MediaSkipForward))
-        self._fullDoseButton.setFixedSize(full_size)
-        self._halfDoseButton.setIcon(self.style().standardIcon(QStyle.SP_MediaSkipForward))
-        self._halfDoseButton.setFixedSize(half_size)
-
     def doInjectDrug(self, volume):
         # in case the pump is currently infusing, we store the current values to restore after the
         # end of the injection
-        currRate = self.pump.getRate()
-        currDir = self.pump.getDirection()
-        currUnits = self.pump.getUnits()
+        currRate = self._pump.getRate()
+        currDir = self._pump.getDirection()
+        currUnits = self._pump.getUnits()
 
         try:
-            if self.pump.isRunning():
-                self.pump.stop()
-            self.pump.setDirection(self.pump.STATE.INFUSING)
-            self.pump.setRate(SyringePumps.BOLUS_RATE, SyringePumps.BOLUS_RATE_UNITS)
-            self.pump.setTargetVolume(volume / 1000)  # volume is in uL but TargetVolume is in mL
-            self.pump.start()
+            if self._pump.isRunning():
+                self._pump.stop()
+            self._pump.setDirection(self._pump.STATE.INFUSING)
+            self._pump.setRate(SyringePumps.BOLUS_RATE, SyringePumps.BOLUS_RATE_UNITS)
+            self._pump.setTargetVolume(volume / 1000)  # volume is in uL but TargetVolume is in mL
+            self._pump.start()
             super().doInjectDrug(volume)
         except SyringePumps.ValueOORException:
             # noinspection PyTypeChecker
@@ -639,23 +645,23 @@ class DrugPumpPanel(DrugPanel):
 
     # noinspection PyUnusedLocal
     def abortInjection(self, event):
-        if self.pump.isRunning():
-            self.pump.stop()
+        if self._pump.isRunning():
+            self._pump.stop()
         self.enableInjectButtons(True)
 
     def waitForEndOfInjection(self, restoreRate, restoreUnits, restoreDir):
         # logger.debug("in waitForEndOfInjection()")
-        while self.pump.isRunning():
+        while self._pump.isRunning():
             time.sleep(0.1)
             pass
             logger.debug('pump is still running')
         # logger.debug('pump is finished pumping')
         self.enableInjectButtons(True)
         # logger.debug("restoring previous pump state")
-        self.pump.setRate(restoreRate, restoreUnits)
+        self._pump.setRate(restoreRate, restoreUnits)
         if restoreDir != 0:
-            self.pump.setDirection(restoreDir)
-            self.pump.start()
+            self._pump.setDirection(restoreDir)
+            self._pump.start()
         self.updateFromPump()
 
     def onCustomDoseButtonClick(self, event):
@@ -665,34 +671,23 @@ class DrugPumpPanel(DrugPanel):
             self.doInjectDrug(val)
 
 
-class PumpTimer(DrugTimer):
-    def __init__(self, parent, pumpPanel: DrugPumpPanel, alarmThresh=None, alarmSoundFile=None):
-        super().__init__(parent=parent, alarmThresh=alarmThresh, alarmSoundFile=alarmSoundFile)
-        self.pumpPanel = pumpPanel
-        self._autoInject = False
+class PhysioMonitorMainScreen(QMainWindow):
+    logBox: QPlainTextEdit
+    clock: ClockWidget
+    _graphLayout: ScopeLayoutWidget
+    drugPanelsLayout: QVBoxLayout
+    otherDrugButton: QPushButton
+    addNoteButton: QPushButton
 
-    @property
-    def autoInject(self):
-        return self._autoInject
-
-    @autoInject.setter
-    def autoInject(self, value):
-        self._autoInject = value
-
-    def triggerAlarm(self):
-        # logger.debug('in PumpTimer.triggerAlarm()')
-        if self.autoInject:
-            # logger.debug('autoInject==True, injecting...')
-            self.pumpPanel.onFullDoseButtonClick(None)
-
-
-class PhysioMonitorMainScreen(QFrame):
     def __init__(self, config):
         super().__init__()
-
+        # Load the UI Page
+        uic.loadUi('./GUI/MainScreen.ui', self)
         self.config = config
 
-        # Acquisition system
+        ##
+        # Configure acquisition system(s)
+        ##
         module = config['acquisition']['module']
         if module not in AVAIL_ACQ_MODULES:
             # noinspection PyTypeChecker
@@ -700,9 +695,12 @@ class PhysioMonitorMainScreen(QFrame):
                                  f'ERROR: wrong acquisition module {module}.\n'
                                  'Must be one of: ' + ','.join(AVAIL_ACQ_MODULES.keys()))
             raise ValueError('Wrong acquisition module in config file')
-        self.__stream = AVAIL_ACQ_MODULES[module](**config['acquisition']['module-args'])
+        self.__stream = AVAIL_ACQ_MODULES[module](sampling_rate=config['acquisition']['sampling-rate'],
+                                                  **config['acquisition']['module-args'])
 
-        # Serial communication
+        ##
+        # Serial port(s) for syringe pump
+        ##
         self.serialPorts = []
         for serial_conf in self.config['serial-ports']:
             try:
@@ -719,6 +717,9 @@ class PhysioMonitorMainScreen(QFrame):
                                     'Serial connection will not be available'.format(serial_conf['port']))
             self.serialPorts.append(ser)
 
+        ##
+        # Syringe pump(s)
+        ##
         self.pumps = []
         for pump_conf in self.config['pumps']:
             model = pump_conf['model']
@@ -754,39 +755,8 @@ class PhysioMonitorMainScreen(QFrame):
         self.__physioToLogTimer = QTimer()
         self.__physioToLogTimer.timeout.connect(self.writePhysioToLog)
 
-        #
-        # UI elements
-        #
-        # LOG BOX
-        self.logBox = QPlainTextEdit()
-        self.logBox.setLineWrapMode(False)
-        f = QFontDatabase.systemFont(QFontDatabase.FixedFont)
-        f.setPointSize(12)
-        self.logBox.setFont(f)
-
         self.logFile = config['log-file']
 
-        layout00 = QHBoxLayout()
-        layout10 = QVBoxLayout()
-
-        # Create some widgets to be placed inside
-        clock = ClockWidget()
-        self._graphLayout = ScopeLayoutWidget()
-
-        notebook = QTabWidget()
-        notebook.addTab(self._graphLayout, "Graphs")
-        notebook.addTab(self.logBox, "Log")
-
-        layout10.addWidget(clock, stretch=0)
-        scrollArea = QScrollArea()
-        scrollArea.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.MinimumExpanding)
-        scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        scrollArea.setWidgetResizable(True)
-        widget = QWidget()
-        scrollArea.setWidget(widget)
-        self.drugPanelsLayout = QVBoxLayout()
-        self.drugPanelsLayout.setContentsMargins(0, 0, 0, 0)
-        self.drugPanelsLayout.setSpacing(0)
         for i, drug in enumerate(config['drug-list']):
             if drug.pump is not None and self.pumps[drug.pump - 1] is not None:
                 panel = DrugPumpPanel(None, drug.name, drug.volume, pump=self.pumps[drug.pump - 1],
@@ -796,22 +766,13 @@ class PhysioMonitorMainScreen(QFrame):
                 panel = DrugPanel(None, drug.name, drug.volume,
                                   alarmSoundFile='./media/beep3x6.wav', logFile=self.logFile)
             self.drugPanelsLayout.addWidget(panel)
-        self.drugPanelsLayout.setAlignment(Qt.AlignTop)
-        widget.setLayout(self.drugPanelsLayout)
-        layout10.addWidget(scrollArea)
+        # self.drugPanelsLayout.setAlignment(Qt.AlignTop)  # FIXME can this be set in Designer?
 
-        self.newDrugButton = QPushButton("Other drug")
-        self.newDrugButton.clicked.connect(self.addNewDrug)
-
-        self.addNoteButton = QPushButton("Add note")
+        ##
+        # Signals / Slots
+        ##
+        self.otherDrugButton.clicked.connect(self.addNewDrug)
         self.addNoteButton.clicked.connect(self.addNote)
-        layout11 = QHBoxLayout()
-        layout11.addWidget(self.newDrugButton)
-        layout11.addWidget(self.addNoteButton)
-        layout10.addLayout(layout11)
-
-        layout00.addLayout(layout10, stretch=0)
-        layout00.addWidget(notebook, stretch=1)
 
         for i, channel in enumerate(config['channels']):
             plot = PagedScope(
@@ -844,7 +805,6 @@ class PhysioMonitorMainScreen(QFrame):
                 alarmSoundFile=channel['alarm-sound-file']
             )
             self._graphLayout.addItem(plot, i, 1)
-        self.setLayout(layout00)
         self.setWindowIcon(QIcon('../media/icon.png'))
 
     def start(self):
@@ -869,13 +829,13 @@ class PhysioMonitorMainScreen(QFrame):
 
     def writeToLog(self, *args, sep='\t|\t'):
         currTime = datetime.datetime.now().strftime("%H:%M:%S")
-        self.logFile.append(sep.join([currTime]+list(args)))
+        self.logFile.append(sep.join([currTime] + list(args)))
 
     def addNote(self):
         text, ok = QInputDialog.getText(self, 'Add a note to the log', 'Note:')
         if ok and len(text) > 0:
             currTime = datetime.datetime.now().strftime("%H:%M:%S")
-            self.logFile.append('{:s}\t{:s}\n'.format(currTime, text))
+            self.logFile.append('{time}\t|\t{note}\n'.format(time=currTime, note=text))
 
     def addNewDrug(self):
         name, volume, ok = CustomDialog.getDrugVolume(self, name="", volume=0, addInject=True)

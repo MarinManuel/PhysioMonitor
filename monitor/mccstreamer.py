@@ -24,24 +24,29 @@ def get_rolling_data(buffer, last_index, current_index):
 
 
 class MCCStreamer(Streamer):
-    def __init__(self) -> None:
+    def __init__(self, sampling_rate, device, channels, input_modes, input_ranges, buffer_size=1000) -> None:
         super().__init__()
-        channel_list = [7, 3, 0]
-        self.bufferSz = 500
-        self._sampling_rate = 100
+        self._buffer_size = buffer_size
+        self._sampling_rate = sampling_rate
 
         devices = get_daq_device_inventory(InterfaceType.ANY)
-        self._daq_device = DaqDevice(devices[0])
+        self._daq_device = DaqDevice(devices[device])
         self._ai_device = self._daq_device.get_ai_device()
         self._daq_device.connect(connection_code=0)
         self._ai_info = self._ai_device.get_info()
 
         self._queue_list = []
-        for channel in channel_list:
+        for channel, in_mode, in_range in zip(channels, input_modes, input_ranges):
+            if in_mode.upper() not in AiInputMode.__members__:
+                raise ValueError(f'Invalid input mode "{in_mode}". Must be one of '
+                                 f'{", ".join(AiInputMode.__members__.keys())}')
+            if in_range.upper() not in Range.__members__:
+                raise ValueError(f'Invalid input range "{in_range}". Must be one of '
+                                 f'{", ".join(Range.__members__.keys())}')
             queue_element = AiQueueElement()
             queue_element.channel = channel
-            queue_element.input_mode = AiInputMode.SINGLE_ENDED
-            queue_element.range = Range.BIP10VOLTS
+            queue_element.input_mode = getattr(AiInputMode, in_mode.upper())
+            queue_element.range = getattr(Range, in_range.upper())
             self._queue_list.append(queue_element)
 
         # some MCC devices--including USB-201--require that the channels in the queue be in ascending order
@@ -52,13 +57,14 @@ class MCCStreamer(Streamer):
                                                         key=lambda x: x[0].channel))
 
         self._ai_device.a_in_load_queue(self._sorted_queue)
-        self.__data = create_float_buffer(len(channel_list), self.bufferSz)
+        self.__data = create_float_buffer(len(channels), self._buffer_size)
         self._last_index = 0
 
     def start(self):
         scan_options = ScanOption.DEFAULTIO | ScanOption.CONTINUOUS
         flags = AInScanFlag.DEFAULT
-        self._sampling_rate = self._ai_device.a_in_scan(0, 0, AiInputMode.SINGLE_ENDED, Range.UNI10VOLTS, self.bufferSz,
+        self._sampling_rate = self._ai_device.a_in_scan(0, 0, AiInputMode.SINGLE_ENDED, Range.UNI10VOLTS,
+                                                        self._buffer_size,
                                                         self._sampling_rate, scan_options, flags, self.__data)
 
     def read(self):

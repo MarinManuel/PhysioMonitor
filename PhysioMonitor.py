@@ -3,6 +3,7 @@ import argparse
 import json
 import logging
 import sys
+from PyQt5 import Qt
 from PyQt5.QtWidgets import QApplication
 from GUI.GUI import PhysioMonitorMainScreen, StartDialog
 from monitor.Objects import LogFile

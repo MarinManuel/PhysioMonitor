@@ -225,7 +225,7 @@ Comments:
                     match = LogFile.RE_PUMP.match(drug_match.group('pump'))
                     if match is not None:
                         pump = int(match.group(1))
-                    drug = Drug(name=drug_match.group('name'),
+                    drug = Drug(name=drug_match.group('name').strip(),
                                 dose=float(drug_match.group('dose')),
                                 concentration=float(drug_match.group('concentration')),
                                 volume=int(drug_match.group('volume')),
