@@ -487,7 +487,7 @@ class PagedScope(ScrollingScope):
         # handles cases where persistence is set to None
         self._persistence = (persistence if persistence is not None else 0)
         self._buffer = np.array([])
-        self._curve.setZValue(self._persistence + 10)  # ensure main curves stays on top of the remnant ones
+        self._curve.setZValue(self._persistence + 10)  # ensure main curves stays on top of the persistent ones
         self._trendVB.setZValue(self._persistence + 11)  # ensures the trend plot stays above the other curves
         self._trendCurve.setZValue(self._persistence + 12)
         self._persistCurves = collections.deque()
@@ -586,7 +586,7 @@ class PagedScope(ScrollingScope):
             pointsToAdd = self._bufferSize - self._buffer.size
             pointsLeft = N - pointsToAdd
             temp = np.concatenate([self._buffer, scaled_chunk[:pointsToAdd]])
-            # create a new remnant curve
+            # create a new persistent curve
             curve = self.plot(x=self._xArray, y=temp)
             curve.setPen(color=self._lineColor, width=self._lineWidth / 2)
             self._persistCurves.append(curve)

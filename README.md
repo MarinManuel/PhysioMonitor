@@ -73,5 +73,46 @@ See [the documentation](https://www.mccdaq.com/PDFs/Manuals/UL-Linux/python/api.
 a list of valid input ranges.
 - `buffer_size` - size of the buffer used to store the data in between each read (default 1000).
 
+## Channel configuration
+Each channel is configured by the following intructions:
+- `window-size` - <span style="color:DarkGreen">float</span> - Width of the window of data to display (in seconds).
+- `label` - <span style="color:DarkGreen">string</span> - Channel title.
+- `units` - <span style="color:DarkGreen">string</span> - Real world unit for the channel.
+- `scale` - <span style="color:DarkGreen">float</span> - used to convert the value in volts to the value in real worl units: `Units = scale x volts + offset`.
+- `offset` - <span style="color:DarkGreen">float</span> - used to convert the value in volts to the value in real worl units: `Units = scale x volts + offset`.
+- `autoscale` - <span style="color:DarkGreen">true/false</span> - Whether to automatically adjust the y-axis limit to fit with the data limits.
+- `ymin` - <span style="color:DarkGreen">float</span> - Lower y-axis limit. Only usefull if autoscale is off.
+- `ymax` - <span style="color:DarkGreen">float</span> - Upper y-axis linit. Only usefull if autoscale is off.
+- `line-color` - <span style="color:DarkGreen">variable</span> - color of the data line. Accepts any argument that can be passed to [`pyqtgraph.mkColor()`](https://pyqtgraph.readthedocs.io/en/latest/functions.html#pyqtgraph.mkColor) 
+- `line-width` - <span style="color:DarkGreen">float</span> - line thickness.
+- `persistence` - <span style="color:DarkGreen">int</span> - Number of past traces to keep. Older traces fade towards the background color.
+- `trigger-mode` - <span style="color:DarkGreen">string</span> - Sets whether new data is shown immediately upon reaching the right-hand side of the screen
+  (`'AUTO'`), or whether the waveform must first cross a threshold value (see below) in the upward (`'RISING'`) or 
+  downward direction (`'FALLING'`).
+- `trigger-level` - <span style="color:DarkGreen">float</span> - Threshold value (in channel units).
+- `auto-trigger-level` - <span style="color:DarkGreen">true/false</span> - Whether the trigger threshold is automatically calculated based on the historical 
+  data. The value is calculated as 75% of the range of the data if the threshold mode is `RISING`, and 25% of the range
+  if it is `FALLING`.
+- `trend-window-size` - <span style="color:DarkGreen">float</span> - Width of the window of trend data (in seconds). 
+- `trend-period` - Period over which to calculate the trend value (in seconds).
+- `trend-function` - <span style="color:DarkGreen">string</span> - Function used to calculate the trend value. Valid values are:
+    - `'HR'` calculates heart rate based on QRS detection 
+    - `'max'` returns the maximum of the data,
+    - `'min'` returns the minimum of the data,
+    - `'lastPeak'` returns the value of the latest detected peak in the data,
+    - `'avgPeak'` returns the average of the peak values detected in the data,
+    - `'average'` returns the average of the data
+- `trend-function-args` - arguments passed to `trend-function`. See the code for the `trend_*` functions in the GUI.scope module.
+- `trend-units` - <span style="color:DarkGreen">string</span> - Units of the trend data 
+- `trend-autoscale` - <span style="color:DarkGreen">true/false</span> - Whether to automatically adjust the y-axis limit of the trend window to fit with 
+  the data limits.
+- `trend-ymin` - <span style="color:DarkGreen">float</span> - Lower y-axis limit of the trend window. Only usefull if autoscale is off.
+- `trend-ymax` - <span style="color:DarkGreen">float</span> - Lower y-axis limit of the trend window. Only usefull if autoscale is off.
+- `alarm-enabled` - <span style="color:DarkGreen">true/false</span> - Whether an alarm should sound when the trend data is outside the lower and higher limits.
+- `alarm-low` - <span style="color:DarkGreen">float</span> - The lower threshold for the alarm.
+- `alarm-high` - <span style="color:DarkGreen">float</span> - the upper threshold for the alarm.
+- `alarm-sound-file` - <span style="color:DarkGreen">string</span> - path to an OGG or a WAV sound file that is being played when the alarm is triggered.
+- `alarmBGColor` - <span style="color:DarkGreen">var</span> - Color of the window when the alarm is triggered.
+
 # Installation
  - TODO
