@@ -18,12 +18,13 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QDialog, QDoubleSpinBo
 
 from GUI.Models import DoubleSpinBoxDelegate, DrugTableModel
 from GUI.scope import ScopeLayoutWidget, PagedScope, ScrollingScope
-from monitor import SyringePumps
-from monitor.Objects import Drug, Sex, Mouse, LogFile
-from monitor.SyringePumps import SyringePumpException, AVAIL_PUMPS
-from monitor.sampling import AVAIL_ACQ_MODULES
+from pumps import SyringePumps
+from misc import Drug, Sex, Mouse, LogFile
+from pumps.SyringePumps import SyringePumpException, AVAIL_PUMPS
 
 # noinspection SpellCheckingInspection
+from sampling import AVAIL_ACQ_MODULES
+
 PREVIOUS_VALUES_FILE = 'prev_vals.json'
 
 # if it hasn't been already, initialize the sound mixer
@@ -664,6 +665,7 @@ class DrugPumpPanel(QWidget):
             self._pump.start()
         self.updateFromPump()
 
+    # noinspection PyUnusedLocal
     def onCustomDoseButtonClick(self, event):
         val, ok = CustomDialog.getDouble(self, value=self._drugVolume, text="Enter custom amount (μL)",
                                          minVal=0.001, maxVal=9999.)
@@ -688,15 +690,19 @@ class PhysioMonitorMainScreen(QMainWindow):
         ##
         # Configure acquisition system(s)
         ##
-        module = config['acquisition']['module']
-        if module not in AVAIL_ACQ_MODULES:
-            # noinspection PyTypeChecker
-            QMessageBox.critical(None, 'Wrong acquisition module',
-                                 f'ERROR: wrong acquisition module {module}.\n'
-                                 'Must be one of: ' + ','.join(AVAIL_ACQ_MODULES.keys()))
-            raise ValueError('Wrong acquisition module in config file')
-        self.__stream = AVAIL_ACQ_MODULES[module](sampling_rate=config['acquisition']['sampling-rate'],
-                                                  **config['acquisition']['module-args'])
+        self.__streams = []
+        for acq_module in config['acquisition-modules']:
+            if acq_module['module-name'] not in AVAIL_ACQ_MODULES:
+                # noinspection PyTypeChecker
+                QMessageBox.critical(None, 'Wrong acquisition module',
+                                     f'ERROR: wrong acquisition module {acq_module["module-name"]}.\n'
+                                     'Must be one of: ' + ','.join(AVAIL_ACQ_MODULES.keys()))
+                raise ValueError('Wrong acquisition module in config file')
+            acqMod = AVAIL_ACQ_MODULES[acq_module["module-name"]]
+            if acqMod is None:
+                raise ModuleNotFoundError(f'ERROR: module {acq_module["module-name"]} cannot be loaded')
+            self.__streams.append(acqMod(sampling_rate=acq_module['sampling-rate'],
+                                         **acq_module['module-args']))
 
         ##
         # Serial port(s) for syringe pump
@@ -776,7 +782,9 @@ class PhysioMonitorMainScreen(QMainWindow):
 
         for i, channel in enumerate(config['channels']):
             plot = PagedScope(
-                sampleFreq=config['acquisition']['sample-rate'],
+                acquisition_module_index=channel['acquisition-module-index'],
+                channel_index=channel['channel-index'],
+                sampleFreq=config['acquisition-modules'][channel['acquisition-module-index']]['sampling-rate'],
                 windowSize=channel['window-size'],
                 linecolor=channel['line-color'],
                 linewidth=channel['line-width'],
@@ -808,7 +816,8 @@ class PhysioMonitorMainScreen(QMainWindow):
         self.setWindowIcon(QIcon('../media/icon.png'))
 
     def start(self):
-        self.__stream.start()
+        for stream in self.__streams:
+            stream.start()
         self.__refreshScopeTimer.start(50)
         self.__physioToLogTimer.start(5 * 60 * 1000)  # FIXME: this value should be in the config file
         for i in range(len(self._graphLayout.centralWidget.items)):
@@ -816,8 +825,11 @@ class PhysioMonitorMainScreen(QMainWindow):
             plot.start()
 
     def update(self):
-        data = self.__stream.read()
-        self._graphLayout.append(data)
+        data = [stream.read() for stream in self.__streams]
+        for i in range(len(self._graphLayout.centralWidget.items)):
+            plot: ScrollingScope = self._graphLayout.getItem(i, 1)
+            d = data[plot.acquisition_module_index][:, plot.channel_index]
+            plot.append(d)
 
     def writePhysioToLog(self):
         texts = []
@@ -846,7 +858,8 @@ class PhysioMonitorMainScreen(QMainWindow):
                 newPanel.onFullDoseButtonClick(None)
 
     def closeEvent(self, event: QCloseEvent) -> None:
-        self.__stream.close()
+        for stream in self.__streams:
+            stream.close()
         event.accept()
 
 

@@ -3,10 +3,9 @@ import argparse
 import json
 import logging
 import sys
-from PyQt5 import Qt
 from PyQt5.QtWidgets import QApplication
 from GUI.GUI import PhysioMonitorMainScreen, StartDialog
-from monitor.Objects import LogFile
+from misc import LogFile
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-c', "--config", help="path of the configuration file to use (required)", required=True)
@@ -23,11 +22,8 @@ args = parser.parse_args()
 numeric_level = getattr(logging, args.log_level.upper(), None)
 if not isinstance(numeric_level, int):
     raise ValueError(f'Invalid log level: {args.log_level}')
-logfile = '/dev/stdout'
-if args.logfile is not None:
-    logfile = args.logfile
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=numeric_level, filename=logfile, filemode='w')
+logging.basicConfig(level=numeric_level, filename=args.logfile, filemode='w')
 
 try:
     with open(args.config, 'r', encoding='utf-8') as f:

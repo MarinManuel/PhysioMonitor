@@ -3,7 +3,7 @@ Python application to track physiological parameters during surgery
 
 # Configuration
 The software needs a configuration file in JSON format to run. The global structure of the file is:
-```json
+```
 {
   "log-filename": str;
     This is the name of the file in which the surgical log 
@@ -23,7 +23,7 @@ The software needs a configuration file in JSON format to run. The global struct
 ```
 ## Data acquisition modules
 Each element of the list must contain the following items:
-```json
+```
 {
   "module-name": str;
     Name of the module to use. See the list below
@@ -73,8 +73,14 @@ See [the documentation](https://www.mccdaq.com/PDFs/Manuals/UL-Linux/python/api.
 a list of valid input ranges.
 - `buffer_size` - size of the buffer used to store the data in between each read (default 1000).
 
+### "comedi"
+No longer supported under Python 3
+
 ## Channel configuration
 Each channel is configured by the following intructions:
+- `acquisition-module-index` - <span style="color:DarkGreen">int</span> - Index of the acquisition module to use for this channel 
+  (as defined by its position in the list of acquisition modules declared in the section "Data acquisition modules")
+- `channel-index` - <span style="color:DarkGreen">int</span> - Index corresponding to this channel's data in the relevant stream.
 - `window-size` - <span style="color:DarkGreen">float</span> - Width of the window of data to display (in seconds).
 - `label` - <span style="color:DarkGreen">string</span> - Channel title.
 - `units` - <span style="color:DarkGreen">string</span> - Real world unit for the channel.

@@ -9,7 +9,7 @@ import pyqtgraph as pg
 from PyQt5.QtWidgets import QMenu, QAction, QFormLayout, QDoubleSpinBox, QWidget, QWidgetAction
 from pyqtgraph.Qt import QtCore, QtGui
 
-from monitor.buffers import RollingBuffer
+from sampling.buffers import RollingBuffer
 
 BACKGROUND_COLOR = (226, 226, 226)
 AXES_COLOR = (0, 0, 0)
@@ -28,6 +28,8 @@ logger = logging.getLogger(__name__)
 
 class ScrollingScope(pg.PlotItem):
     def __init__(self,
+                 acquisition_module_index=0,
+                 channel_index=0,
                  windowSize=30,  # in secs
                  sampleFreq=1000,  # in Hz
                  bgColor='w',
@@ -41,7 +43,7 @@ class ScrollingScope(pg.PlotItem):
                  ymin=0.,
                  ymax=1.,
                  trend_line_color='r',
-                 trend_line_width=2,
+                 trend_line_width=3,
                  trendWindowSize=30 * 60,  # in seconds
                  trendPeriod=30,  # in seconds
                  trendFunction=None,
@@ -57,6 +59,8 @@ class ScrollingScope(pg.PlotItem):
                  alarmBGColor=(255, 255, 200),
                  *args, **kwargs):
         super(ScrollingScope, self).__init__(*args, **kwargs)
+        self._acqModIdx = acquisition_module_index
+        self._chanIdx = channel_index
         self._windowSize = windowSize
         self._sampleFreq = sampleFreq
         self._bgColor = bgColor
@@ -115,8 +119,7 @@ class ScrollingScope(pg.PlotItem):
             self.vb.enableAutoRange(axis=self.vb.YAxis)
         else:
             self.vb.setYRange(self._ymin, self._ymax, padding=0)
-        self.getAxis('left').setStyle(autoExpandTextSpace=False)  # , autoReduceTextSpace=False)
-        # FIXME: autoReduceTextSpace is not available in v0.11.0
+        self.getAxis('left').setStyle(autoExpandTextSpace=False, autoReduceTextSpace=False)
         self.vb.setXRange(0.0, self._windowSize, padding=0)
         self.setLabel(axis="left", text=self._title, units=self._units)
         self._curve.setPen({'color': self._lineColor, 'width': self._lineWidth})
@@ -132,6 +135,7 @@ class ScrollingScope(pg.PlotItem):
 
         self._trendVB = pg.ViewBox()
         self.showAxis('right')
+        self.getAxis('right').setStyle(autoExpandTextSpace=False, autoReduceTextSpace=False)
         # self.showAxis('top')
         #  I'm not showing the top axis because it's taking a lot of screen real-estate
         # and it's not really useful anyway
@@ -445,6 +449,14 @@ class ScrollingScope(pg.PlotItem):
         pos = ev.screenPos()
         menu.popup(QtCore.QPoint(pos.x(), pos.y()))
 
+    @property
+    def acquisition_module_index(self):
+        return self._acqModIdx
+
+    @property
+    def channel_index(self):
+        return self._chanIdx
+
 
 class MenuLowHighSpinAction(QWidgetAction):
     def __init__(self, parent=None, lowVal=0.0, highVal=0.0, units='',
@@ -608,24 +620,6 @@ class PagedScope(ScrollingScope):
 class ScopeLayoutWidget(pg.GraphicsLayoutWidget):
     def __init__(self, *args, **kwargs):
         super(ScopeLayoutWidget, self).__init__(*args, **kwargs)
-
-    def append(self, chunk):
-        nPlots = len(self.centralWidget.items)
-        chunk = np.array(chunk)  # make sure we have a numpy array
-        if chunk.size == 0:
-            return  # empty array, nothing to do
-        if len(chunk.shape) == 1:
-            nbLines = 1
-        else:
-            nbLines = chunk.shape[0]
-
-        if nPlots != nbLines:
-            raise ValueError("ERROR in append(chunk=%s): shape of chunk incompatible with number of axes (%d)"
-                             % (chunk.shape, nPlots))
-
-        for i, data in enumerate(chunk):
-            plot = self.getItem(i, 1)
-            plot.append(data)
 
 
 # noinspection SpellCheckingInspection

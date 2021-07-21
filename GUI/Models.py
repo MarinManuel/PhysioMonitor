@@ -2,7 +2,7 @@ from PyQt5 import QtCore
 from PyQt5.QtCore import Qt, QAbstractTableModel, QModelIndex
 from PyQt5.QtWidgets import QStyledItemDelegate, QWidget, QDoubleSpinBox
 
-from monitor.Objects import Drug
+from misc import Drug
 
 
 class DoubleSpinBoxDelegate(QStyledItemDelegate):
