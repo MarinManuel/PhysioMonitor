@@ -60,7 +60,7 @@ class ScrollingScope(pg.PlotItem):
                  *args, **kwargs):
         super(ScrollingScope, self).__init__(*args, **kwargs)
         self._acqModIdx = acquisition_module_index
-        self._chanIdx = channel_index
+        self._channelIdx = channel_index
         self._windowSize = windowSize
         self._sampleFreq = sampleFreq
         self._bgColor = bgColor
@@ -175,6 +175,7 @@ class ScrollingScope(pg.PlotItem):
         self._trendText.setPos(
             self._trendVB.viewRange()[0][1], self._trendVB.viewRange()[1][0]
         )
+        self._trendText.setVisible(self.trendEnabled)
         self._trendVB.addItem(self._trendText)
         self._trendAxis.setTextPen({'color': self._trendLineColor})
         self._trendTimer = pg.QtCore.QTimer()
@@ -187,8 +188,8 @@ class ScrollingScope(pg.PlotItem):
                                              pen=pg.mkPen('r', width=2, style=QtCore.Qt.DashLine))
         self._trendVB.addItem(self._alarmLineHigh)
         self._trendVB.addItem(self._alarmLineLow)
-        self._alarmLineHigh.setVisible(self._alarmEnabled)
-        self._alarmLineLow.setVisible(self._alarmEnabled)
+        self._alarmLineHigh.setVisible(self._alarmEnabled & self.trendEnabled)
+        self._alarmLineLow.setVisible(self._alarmEnabled & self.trendEnabled)
         self._muteButton = pg.TextItem(text=u"[muted]",
                                        color=self._trendLineColor,
                                        anchor=(1, 0))
@@ -212,32 +213,32 @@ class ScrollingScope(pg.PlotItem):
 
     def onTrendTimer(self):
         # logger.debug("in ScrollingPlot.onTrendTimer()")
-        retVal = 0.0
-        if self._trendFunction is not None:
+        if self.trendEnabled:
             retVal = self._trendFunction(self._trendBuffer.values().flatten(), **self._trendFuncKwargs)
-        self._trendText.setPlainText(u"{:.1f} {!s}".format(retVal, self._trendUnits))
-        self._trendData = np.roll(self._trendData, -1)  # shifts data along axis 1 N points to the left
-        self._trendData[-1:] = retVal
-        self._trendCurve.setData(x=self._trendXArray, y=self._trendData)
+            self._trendText.setPlainText(u"{:.1f} {!s}".format(retVal, self._trendUnits))
+            self._trendData = np.roll(self._trendData, -1)  # shifts data along axis 1 N points to the left
+            self._trendData[-1:] = retVal
+            self._trendCurve.setData(x=self._trendXArray, y=self._trendData)
 
-        # deal with alarm conditions
-        if self.alarmEnabled:
-            if retVal > self._alarmHigh and not np.isnan(retVal):
-                if not self._alarmTripped:
-                    # logger.debug(
-                    #     "Trend value reached %.2f, which is > %.2f. Tripping alarm" % (retVal, self.alarmHigh))
-                    self.tripAlarm()
-            elif retVal < self._alarmLow and not np.isnan(retVal):
-                if not self._alarmTripped:
-                    # logger.debug(
-                    #     "Trend value reached %.2f, which is < %.2f. Tripping alarm" % (retVal, self.alarmLow))
-                    self.tripAlarm()
-            else:
-                # value is between alarmLow and alarmHigh
-                if self._alarmTripped:
-                    # logger.debug(
-                    #     "Trend value: %.2f > %.2f > %.2f. resetting alarm" % (self.alarmLow, retVal, self.alarmHigh))
-                    self.resetAlarm()
+            # deal with alarm conditions
+            if self.alarmEnabled:
+                if retVal > self._alarmHigh and not np.isnan(retVal):
+                    if not self._alarmTripped:
+                        # logger.debug(
+                        #     "Trend value reached %.2f, which is > %.2f. Tripping alarm" % (retVal, self.alarmHigh))
+                        self.tripAlarm()
+                elif retVal < self._alarmLow and not np.isnan(retVal):
+                    if not self._alarmTripped:
+                        # logger.debug(
+                        #     "Trend value reached %.2f, which is < %.2f. Tripping alarm" % (retVal, self.alarmLow))
+                        self.tripAlarm()
+                else:
+                    # value is between alarmLow and alarmHigh
+                    if self._alarmTripped:
+                        # logger.debug(
+                        #     "Trend value: %.2f > %.2f > %.2f. resetting alarm" %
+                        #     (self.alarmLow, retVal, self.alarmHigh))
+                        self.resetAlarm()
 
     def setBackgroundColor(self, color):
         self.vb.setBackgroundColor(color)
@@ -257,13 +258,17 @@ class ScrollingScope(pg.PlotItem):
     @staticmethod
     def _selectTrendFunction(functionName):
         retVal = None
-        if functionName is not None and functionName in knownTrendFunctions:
+        if functionName in knownTrendFunctions:
             retVal = knownTrendFunctions[functionName]
-        else:
-            logger.error("Trend function {} unknown. Please select among: {}".format(
+        elif functionName is not None:
+            logger.error("Trend function {} unknown. Valid functions are: {}. Continuing without trend function".format(
                 functionName, ', '.join(knownTrendFunctions.keys())
             ))
         return retVal
+
+    @property
+    def trendEnabled(self):
+        return self._trendFunction is not None
 
     def _rescaleData(self, chunk):
         return np.array(self._offset + self._scaling * np.array(chunk))
@@ -455,7 +460,7 @@ class ScrollingScope(pg.PlotItem):
 
     @property
     def channel_index(self):
-        return self._chanIdx
+        return self._channelIdx
 
 
 class MenuLowHighSpinAction(QWidgetAction):
@@ -576,6 +581,7 @@ class PagedScope(ScrollingScope):
             return chunk  # AUTO mode
 
     def append(self, chunk):
+        chunk = np.asarray(chunk)  # make sure we have a numpy array
         # logger.debug("[%s] in append(%s)", self._title, chunk.shape)
         N = chunk.size
         if N == 0:

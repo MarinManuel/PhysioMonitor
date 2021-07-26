@@ -5,36 +5,11 @@
   "measurements-output-period-min": 5,
   "acquisition-modules": [
     {
-      "module-name": "mcc",
+      "module-name": "demo",
       "sampling-rate": 1000,
-      "module-args": {
-        "device": 0,
-        "channels": [
-          0,
-          3,
-          7
-        ],
-        "input_modes": [
-          "SINGLE_ENDED",
-          "SINGLE_ENDED",
-          "SINGLE_ENDED"
-        ],
-        "input_ranges": [
-          "BIP10VOLTS",
-          "BIP10VOLTS",
-          "BIP10VOLTS"
-        ]
-      }
-    },
-    {
-      "module-name": "serial",
-      "sampling-rate": 50,
-      "module-args": {
-        "port": "test/tty-read",
-        "baudrate": 9600
-      }
+      "module-args": {}
     }
-  ],
+      ],
   "channels": [
     {
       "acquisition-module-index": 0,
@@ -42,7 +17,7 @@
       "window-size": 1,
       "line-color": "#007F00",
       "line-width": 2,
-      "label": "MCC-0",
+      "label": "EKG",
       "units": "V",
       "scale": 1.0,
       "offset": 0.0,
@@ -55,7 +30,7 @@
       "auto-trigger-level": true,
       "trend-window-size": 1800,
       "trend-period": 20,
-      "trend-function": null,
+      "trend-function": "HR",
       "trend-function-args": {},
       "trend-units": "bpm",
       "trend-autoscale": false,
@@ -68,24 +43,24 @@
     },
     {
       "acquisition-module-index": 0,
-      "channel-index": 1,
-      "window-size": 1,
+      "channel-index": 2,
+      "window-size": 10,
       "line-color": "b",
       "line-width": 2,
-      "label": "MCC-3",
-      "units": "V",
+      "label": "PCO2",
+      "units": "%",
       "scale": 1.0,
       "offset": 0.0,
       "autoscale": false,
-      "ymin": -5,
-      "ymax": 5,
+      "ymin": 0,
+      "ymax": 6,
       "persistence": 1,
       "trigger-mode": "AUTO",
       "trigger-level": 7,
       "auto-trigger-level": false,
       "trend-window-size": 1800,
       "trend-period": 1,
-      "trend-function": null,
+      "trend-function": "lastPeak",
       "trend-function-args": {
         "peakSize": 1.0
       },
@@ -99,25 +74,25 @@
       "alarm-sound-file": "media/beep2.wav"
     },
     {
-      "acquisition-module-index": 1,
-      "channel-index": 2,
-      "window-size": 1,
+      "acquisition-module-index": 0,
+      "channel-index": 3,
+      "window-size": 10,
       "line-color": "#CC0000",
       "line-width": 2,
-      "label": "MCC-7",
-      "units": "V",
+      "label": "Temperature",
+      "units": "°C",
       "scale": 1.0,
       "offset": 0.0,
       "autoscale": false,
-      "ymin": -5,
-      "ymax": 5,
+      "ymin": 35,
+      "ymax": 40,
       "persistence": 1,
       "trigger-mode": "AUTO",
       "trigger-level": 0.0,
       "auto-trigger-level": false,
       "trend-window-size": 1800,
       "trend-period": 1,
-      "trend-function": null,
+      "trend-function": "average",
       "trend-function-args": {},
       "trend-units": "°C",
       "trend-autoscale": false,
@@ -129,8 +104,6 @@
       "alarm-sound-file": "media/beep6.wav"
     }
   ],
-  "serial-ports": [
-  ],
-  "pumps": [
-  ]
+  "serial-ports": [],
+  "pumps": []
 }

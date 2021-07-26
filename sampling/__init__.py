@@ -27,3 +27,10 @@ try:
     AVAIL_ACQ_MODULES['nidaqmx'] = NIStreamer
 except ModuleNotFoundError:
     pass
+
+try:
+    from .serialstreamer import SerialStreamer
+
+    AVAIL_ACQ_MODULES['serial'] = SerialStreamer
+except ModuleNotFoundError:
+    pass

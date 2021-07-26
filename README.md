@@ -5,20 +5,26 @@ Python application to track physiological parameters during surgery
 The software needs a configuration file in JSON format to run. The global structure of the file is:
 ```
 {
-  "log-filename": str;
+  "base-folder": str,
+    The folder in which the logs are going to be saved
+  "create-sub-folder": true|false,
+    Whether to create a separate sub-folder for every day of experiment. If `true`, a new folder with the name 
+    'YYYY-MM-DD/' will be created in base-folder
+  "log-filename": str,
     This is the name of the file in which the surgical log 
     is saved (without path)
-  "acquisition-modules": list; 
+  "measurements-output-period-min": float,
+    The period (in minutes) with which the trend measurements are written to the log file
+  "acquisition-modules": list,
     This is a list of modules used for data acquisition.
     See list of supported modules and configuration options below
-  "channels": list;
+  "channels": list,
     List of channels and their configuration. See below for details
-  "pump-serials": list; 
+  "pump-serials": list,
     List of serial ports to be used for controlling syringe pumps
-  "pumps": list;
+  "pumps": list,
     List of syringe pumps and their configuration. See list of supported
     modules and their configuration below.
-  
 }
 ```
 ## Data acquisition modules
@@ -42,7 +48,7 @@ and outputs the content at the given sampling rate.
 The arguments to supply in `"module-args"` are:
 
 - `filename` - the path to the file to read (default `./media/file_streamer_data.txt`)
-- `loadtxt_kws` - obtional arguments passed to `numpy.loadtxt`. See [the documentation]((https://numpy.org/doc/1.20/reference/generated/numpy.loadtxt.html#numpy.loadtxt)) for a list of possible arguments.
+- `genfromtxt_kws` - optional arguments passed to `numpy.genfromtxt`. See [the documentation]((https://numpy.org/doc/stable/reference/generated/numpy.genfromtxt.html#numpy-genfromtxt)) for a list of possible arguments.
 
 ### "nidaqmx"
 This module allows the use of NI cards supported by [the nidaqmx python library](https://nidaqmx-python.readthedocs.io/en/latest/). 
@@ -81,6 +87,8 @@ Each channel is configured by the following intructions:
 - `acquisition-module-index` - <span style="color:DarkGreen">int</span> - Index of the acquisition module to use for this channel 
   (as defined by its position in the list of acquisition modules declared in the section "Data acquisition modules")
 - `channel-index` - <span style="color:DarkGreen">int</span> - Index corresponding to this channel's data in the relevant stream.
+  WARNING: this is not the physical channel number as entered in channel list in the acquisition configuration, but the index of the channel
+  in the list of channels.
 - `window-size` - <span style="color:DarkGreen">float</span> - Width of the window of data to display (in seconds).
 - `label` - <span style="color:DarkGreen">string</span> - Channel title.
 - `units` - <span style="color:DarkGreen">string</span> - Real world unit for the channel.

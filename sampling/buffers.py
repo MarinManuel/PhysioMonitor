@@ -26,7 +26,7 @@ class RollingBuffer(object):
         items = np.array(items)
 
         if items.size == 0:
-            return  # empty array, nothing to do
+            return  # _empty array, nothing to do
 
         # let's make sure items has the right dimensions
         shape = items.shape

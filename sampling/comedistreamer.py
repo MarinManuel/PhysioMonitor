@@ -84,7 +84,9 @@ class ComediStreamer(Streamer):
                 logging.error("comedi_command_test failed: %s", comedi.comedi_strerror(comedi.comedi_errno()))
                 raise CmdComediError(comedi.comedi_strerror(comedi.comedi_errno()))
 
-    def __del__(self):
+        self._empty = np.empty((self.nbChannels,))
+
+    def close(self):
         # logger.debug("in DemoStreamer.__del__()")
         self.stop()
         ret = comedi.comedi_close(self._dev)
@@ -93,7 +95,6 @@ class ComediStreamer(Streamer):
             raise CmdComediError(comedi.comedi_strerror(comedi.comedi_errno()))
 
     def read(self):
-        out = np.empty((self.nbChannels,))
         if not self.__paused:
             # logger.debug("in SamplingThread.read... reading next values")
             line = os.read(self._fd, self._bufferSize)
@@ -107,7 +108,9 @@ class ComediStreamer(Streamer):
             # logger.debug("returned a (%d,%d) array and kept %d for next round",
             #               out.shape[0], out.shape[1], len(self._remaining))
             out = self.to_physical(out)
-        return out
+            return out
+        else:
+            return self._empty
 
     def to_physical(self, inData):
         out = inData.astype(np.float64)

@@ -33,6 +33,7 @@ class MCCStreamer(Streamer):
         self._ai_device = self._daq_device.get_ai_device()
         self._daq_device.connect(connection_code=0)
         self._ai_info = self._ai_device.get_info()
+        logger.debug(f"created MCC DAQ device: {self._ai_info}")
 
         self._queue_list = []
         for channel, in_mode, in_range in zip(channels, input_modes, input_ranges):
@@ -58,6 +59,7 @@ class MCCStreamer(Streamer):
         self._ai_device.a_in_load_queue(self._sorted_queue)
         self.__data = create_float_buffer(len(channels), self._buffer_size)
         self._last_index = 0
+        self._empty = np.empty(shape=(len(channels),))
 
     def start(self):
         scan_options = ScanOption.DEFAULTIO | ScanOption.CONTINUOUS
@@ -66,6 +68,7 @@ class MCCStreamer(Streamer):
         self._sampling_rate = self._ai_device.a_in_scan(0, 0, 0, 0,  # arguments are ignored if using queues
                                                         self._buffer_size,
                                                         self._sampling_rate, scan_options, flags, self.__data)
+        logger.debug(f"Started sampling at {self._sampling_rate} Hz...")
 
     def read(self):
         status, transfer_status = self._ai_device.get_scan_status()
@@ -77,7 +80,7 @@ class MCCStreamer(Streamer):
             self._last_index = index
             return out[self._row_pos, :]
         else:
-            return
+            return self._empty
 
     def stop(self):
         status, transfer_status = self._ai_device.get_scan_status()

@@ -2,9 +2,9 @@ import nidaqmx
 import nidaqmx.constants
 import nidaqmx.stream_readers
 import numpy as np
+from sampling.sampling import Streamer
 
-from sampling import Streamer
-
+# noinspection SpellCheckingInspection
 terminalConfig = {"DEFAULT": nidaqmx.constants.TerminalConfiguration.DEFAULT,
                   "RSE": nidaqmx.constants.TerminalConfiguration.RSE,
                   "NRSE": nidaqmx.constants.TerminalConfiguration.NRSE,
@@ -46,11 +46,6 @@ class NIStreamer(Streamer):
     def close(self):
         self.stop()
         self.task.close()
-
-    def iterator(self):
-        out = self.data
-        self.data = np.empty(shape=(self.nbChannels, 0))
-        yield out
 
     def read(self):
         out = self.data

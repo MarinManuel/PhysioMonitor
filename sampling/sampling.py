@@ -4,6 +4,7 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
+# noinspection SpellCheckingInspection
 def deinterleave(inData, nChan, dtype=int):
     """
     takes a linear array with data points interleaved
@@ -15,7 +16,7 @@ def deinterleave(inData, nChan, dtype=int):
 
     if the length of the input array was not a multiple of nChan,
     the remaining points are returned in remainData.
-    Otherwise, remainData is an empty array
+    Otherwise, remainData is an _empty array
 
     Args:
         inData: numpy array
@@ -30,16 +31,33 @@ def deinterleave(inData, nChan, dtype=int):
 
 
 class Streamer(object):
-    out = np.empty(shape=(0, 0))
-
-    def read(self):
-        return self.out
+    """
+    This is an object that represents a sampling system.
+    Should initialize the sampling system, but not start the sampling itself
+    Data is stored in an Numpy array of shape (number of channels, N)
+    """
+    _empty = np.empty(shape=(0, 0))
 
     def start(self):
+        """
+        starts the sampling system. starts collecting data
+        """
         pass
 
+    def read(self):
+        """
+        :return: a numpy array of shape (number of channels, N) containing the data sampled since the last call.
+        """
+        return self._empty
+
     def stop(self):
+        """
+        stops the sampling system
+        """
         pass
 
     def close(self):
+        """
+        clean-up
+        """
         pass

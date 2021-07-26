@@ -24,6 +24,7 @@ if not isinstance(numeric_level, int):
     raise ValueError(f'Invalid log level: {args.log_level}')
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=numeric_level, filename=args.logfile, filemode='w')
+logging.getLogger('PyQt5').setLevel(logging.INFO)  # turn off DEBUG messages from PyQT5
 
 try:
     with open(args.config, 'r', encoding='utf-8') as f:
@@ -37,16 +38,14 @@ app = QApplication(sys.argv)
 startDlg = StartDialog(config=config)
 if startDlg.exec():
     config = startDlg.config
-    logFile = LogFile(startDlg.logFile)
-    config['log-file'] = logFile
-
-    physio_monitor = PhysioMonitorMainScreen(config)
+    logFile = LogFile(startDlg.log_filename)
+    physio_monitor = PhysioMonitorMainScreen(config, log=logFile)
 
     logFile.widget = physio_monitor.logBox
     if not startDlg.isResumed:
         logFile.append(logFile.getHeader(mouse=startDlg.mouse, drugList=startDlg.drugList))
     else:
-        with open(startDlg.logFile, 'r', encoding='utf-8') as f:
+        with open(startDlg.log_filename, 'r', encoding='utf-8') as f:
             previous_content = f.read()
         logFile.content = previous_content
         logFile.widget.setPlainText(previous_content)
