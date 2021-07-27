@@ -156,7 +156,7 @@
        </attribute>
        <layout class="QHBoxLayout" name="_2">
         <item>
-         <widget class="QPlainTextEdit" name="logBox">
+         <widget class="QPlainTextEdit" name="logTextEdit">
           <property name="styleSheet">
            <string notr="true">font: 12pt &quot;Monospace&quot;;</string>
           </property>

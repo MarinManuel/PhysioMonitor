@@ -4,11 +4,13 @@ from enum import IntEnum
 import serial
 import time
 
+from PyQt5.QtCore import QTimer
+
 logger = logging.getLogger(__name__)
 
 # bolus injection done at 1 mL/min
 BOLUS_RATE = 1.0
-BOLUS_RATE_UNITS = 1
+BOLUS_RATE_UNITS: int = 1
 
 
 class SyringePump(object):
@@ -184,74 +186,45 @@ class UnforeseenException(SyringePumpException):
 
 class DummyPump(SyringePump):
     # noinspection PyMissingConstructor
-    def __init__(self, serial_port: serial.Serial):
+    def __init__(self, serial_port: serial.Serial, diameter=10, rate=20, units=0):
         self.serial = serial_port
-        self.currState = 0
-        self.nextState = 1
-        self.currDiameter = 10
-        self.currRate = 20
-        self.currUnits = 0
+        self.currDir = self.STATE.INFUSING
+        self.currState = self.STATE.STOPPED
+        self.currDiameter = diameter
+        self.currRate = rate
+        self.currUnits = units
+        self.targetVolume = 0
 
     def __del__(self):
         pass
 
-    def getInfo(self):
-        retVal = '''fake pump on serial port %s (%s baud)
-        syringe diameter: %.2f
-        current rate: %.2f
-        current state: ''' % (self.serial.port,
-                              self.serial.baudrate, self.getDiameter(), self.getRate())
-        if self.isRunning():
-            if self.getDirection() == 1:
-                retVal += 'Infusing...'
-            else:
-                retVal += 'Withdrawing...'
-        else:
-            retVal += 'Stopped'
-        return retVal
-
     def start(self):
-        if self.currState == 0:
-            self.currState = self.nextState
-        else:
-            raise InvalidCommandException("Pump already started")
+        if self.currState == self.STATE.STOPPED:
+            self.currState = self.currDir
+            if self.targetVolume > 0:
+                # simulate the fact that the pump stops automatically when a target volume is set
+                QTimer(None).singleShot(1000, lambda: self.stop())
 
     def stop(self):
-        if self.currState == 1 or self.currState == 2:
-            self.nextState = self.currState
-            self.currState = 0
-        else:
-            raise InvalidCommandException("Pump already stopped")
+        self.currState = self.STATE.STOPPED
 
     def reverse(self):
-        if not self.currState == 0:
-            if self.currState == 1:
-                self.currState = 2
-            else:
-                self.currState = 1
-        else:
-            if self.nextState == 1:
-                self.nextState = 2
-            else:
-                self.nextState = 1
+        if self.currDir == self.STATE.INFUSING:
+            self.currDir = self.STATE.WITHDRAWING
+        elif self.currDir == self.STATE.WITHDRAWING:
+            self.currDir = self.STATE.INFUSING
 
     def isRunning(self):
-        return not self.currState == 0
+        return not self.currState == self.STATE.STOPPED
 
     def clearAccumulatedVolume(self):
         pass
 
     def clearTargetVolume(self):
-        pass
+        self.targetVolume = 0
 
     def setDirection(self, inValue: SyringePump.STATE):
-        if inValue in SyringePump.STATE:
-            if self.isRunning():
-                self.currState = inValue
-            else:
-                self.nextState = inValue
-        else:
-            raise UnknownCommandException("direction should be either INFUSION or WITHDRAWAL")
+        self.currDir = inValue
 
     def setSyringeDiameter(self, inValue: int):
         if inValue <= 0:
@@ -259,16 +232,16 @@ class DummyPump(SyringePump):
         else:
             self.currDiameter = inValue
 
-    def setRate(self, inValue: int, inUnits: int):
-        if inValue <= 0:
+    def setRate(self, inRate: int, inUnits: int):
+        if inRate <= 0:
             raise ValueOORException("Rate must be a positive value")
         if inUnits < 0 or inUnits > (len(self.UNITS) - 1):
             raise ValueOORException("Units must be an integer between %d and %d" % (0, len(self.UNITS) - 1))
-        self.currUnits = inValue
-        self.currRate = inValue
+        self.currRate = inRate
+        self.currUnits = inUnits
 
     def setTargetVolume(self, inValue):
-        pass
+        self.targetVolume = inValue
 
     def getDiameter(self):
         return self.currDiameter
@@ -286,10 +259,7 @@ class DummyPump(SyringePump):
         return 0
 
     def getDirection(self):
-        if self.isRunning():
-            return self.currState
-        else:
-            return self.nextState
+        return self.currDir
 
     def getPossibleUnits(self):
         return self.UNITS
@@ -487,6 +457,7 @@ class Model11plusPump(SyringePump):
         return ''
 
 
+# noinspection SpellCheckingInspection
 class AladdinPump(SyringePump):
     _readTimeout = 1  # second
     # ******* PUMP ANSWERS ******
@@ -602,6 +573,7 @@ class AladdinPump(SyringePump):
             self.serial.flush()
             self.serial.flushInput()
             self.serial.flushOutput()
+        self.doBeep()
 
     def __del__(self):
         pass
@@ -835,6 +807,6 @@ class AladdinAlarmException(SyringePumpException):
             Exception.__init__(self, status)
 
 
-AVAIL_PUMPS = {'dummy': DummyPump,
-               'aladdin': AladdinPump,
-               'model11plus': Model11plusPump}
+AVAIL_PUMP_MODULES = {'dummy': DummyPump,
+                      'aladdin': AladdinPump,
+                      'model11plus': Model11plusPump}

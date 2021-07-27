@@ -129,8 +129,18 @@
       "alarm-sound-file": "media/beep6.wav"
     }
   ],
-  "serial-ports": [
-  ],
-  "pumps": [
-  ]
+  "syringe-pump": {
+    "serial-ports": [
+      {
+        "port": null
+      }
+    ],
+    "pumps": [
+      {
+        "module-name": "dummy",
+        "serial-port": 0,
+        "module-args": {}
+      }
+    ]
+  }
 }

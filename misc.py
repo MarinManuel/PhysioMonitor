@@ -4,6 +4,8 @@ import os
 import re
 import typing
 from enum import IntEnum
+
+from PyQt5.QtWidgets import QPlainTextEdit
 from tabulate import tabulate
 
 logger = logging.getLogger(__name__)
@@ -133,7 +135,7 @@ class Mouse(object):
         )
 
 
-class LogFile(object):
+class LogBox(object):
     HEADER = """## Experiment Date: {expDate}
 === Mouse Info ===
 Mouse: {mouseGenotype}
@@ -142,9 +144,12 @@ DoB: {mouseDoB} ({mouseAge} days-old)
 Weight: {mouseWeight} g
 Comments:
 {mouseComments}
+
 === Drugs ===
 {drugs}
+
 ## start log
+
 """
     RE_MOUSE_INFO = re.compile(r'''=== Mouse Info ===''')
     RE_MOUSE_DATA = re.compile(r'''^Mouse: (?P<genotype>.*)$
@@ -153,6 +158,7 @@ Comments:
 ^Weight: (?P<weight>\d+) g$
 ^Comments:$
 ^(?P<comments>.*)
+
 ^===''', re.MULTILINE | re.DOTALL)
     RE_DRUG_DATA = re.compile(
         r"^\| (?P<name>.*) *\| *(?P<dose>[0-9.]+) \| *(?P<concentration>[0-9.]+) \|"
@@ -161,11 +167,13 @@ Comments:
     RE_PUMP = re.compile('Pump #([0-9]+)')
     DRUGS_HEADER = ['Drug name', 'dose (mg/kg)', 'concentration (mg/mL)', 'Volume to inject (μL)', 'Pump or Manual']
     SEX = ['Male', 'Female', 'Unknown']
+    SEP = '\t|\t'
 
-    def __init__(self, path):
+    def __init__(self, path, widget: QPlainTextEdit, nb_measurements):
         self._path = path
         self.content = ""
-        self.widget = None
+        self.widget = widget
+        self.nbMeasurements = nb_measurements
 
     @property
     def path(self):
@@ -186,12 +194,13 @@ Comments:
                                   drugs=drugs)
 
     def append(self, text):
+        text += '\n' if text[-1] != '\n' else ''  # ensure line ends with newline
         self.content += text
         os.makedirs(os.path.dirname(self._path), exist_ok=True)
         with open(self._path, 'a+', encoding='utf-8') as f:
             f.write(text)
         if self.widget is not None:
-            self.widget.appendPlainText(text)
+            self.widget.appendPlainText(text[:-1])  # dont include \n
 
     @staticmethod
     def parse(path):
@@ -200,10 +209,10 @@ Comments:
         mouse = None
         drugs = []
 
-        mouse_matches = list(LogFile.RE_MOUSE_INFO.finditer(content))
+        mouse_matches = list(LogBox.RE_MOUSE_INFO.finditer(content))
         if len(mouse_matches) > 0:
             mouse_match = mouse_matches[-1]  # keep the last match in case there are several
-            mouse_data = LogFile.RE_MOUSE_DATA.match(content[mouse_match.end() + 1:])
+            mouse_data = LogBox.RE_MOUSE_DATA.match(content[mouse_match.end() + 1:])
             if mouse_data is not None:
                 mouseWeight = int(mouse_data.group('weight'))
                 mouseSex = mouse_data.group('sex')
@@ -219,10 +228,10 @@ Comments:
                 mouse = Mouse(weight=mouseWeight, sex=mouseSex, genotype=mouseGenotype,
                               dob=mouseDoB, comments=mouseComments)
 
-                drug_matches = LogFile.RE_DRUG_DATA.finditer(content[mouse_match.start():])
+                drug_matches = LogBox.RE_DRUG_DATA.finditer(content[mouse_match.start():])
                 for drug_match in drug_matches:
                     pump = None
-                    match = LogFile.RE_PUMP.match(drug_match.group('pump'))
+                    match = LogBox.RE_PUMP.match(drug_match.group('pump'))
                     if match is not None:
                         pump = int(match.group(1))
                     drug = Drug(name=drug_match.group('name').strip(),
@@ -232,3 +241,11 @@ Comments:
                                 pump=pump)
                     drugs.append(drug)
         return mouse, drugs
+
+    def writeToLog(self, measurements: typing.List, note=''):
+        # to get consistent results, make sure that `measurement` is same size a nb of plots
+        m = len(measurements)
+        measurements += [''] * (self.nbMeasurements - m)
+        currTime = datetime.datetime.now().strftime("%H:%M:%S")
+        text = self.SEP.join([currTime] + measurements[:self.nbMeasurements] + [note])
+        self.append(text)

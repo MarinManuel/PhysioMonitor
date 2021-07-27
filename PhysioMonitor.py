@@ -3,25 +3,26 @@ import argparse
 import json
 import logging
 import sys
+from datetime import datetime
 from PyQt5.QtWidgets import QApplication
 from GUI.GUI import PhysioMonitorMainScreen, StartDialog
-from misc import LogFile
+from misc import LogBox
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-c', "--config", help="path of the configuration file to use (required)", required=True)
-parser.add_argument('--log_level', help='level of information to log. '
+parser.add_argument('--log_level', help='level of information to log_box. '
                                         'Can be one of [DEBUG,INFO,WARNING,ERROR,CRITICAL]. '
                                         'Default is WARNING',
                     default='WARNING')
-parser.add_argument('--logfile', help='file in which the log is written. '
-                                      'If absent or None, log is directed to stdout',
+parser.add_argument('--logfile', help='file in which the log_box is written. '
+                                      'If absent or None, log_box is directed to stdout',
                     default=None)
 args = parser.parse_args()
 
 # see https://docs.python.org/3/howto/logging.html#logging-to-a-file
 numeric_level = getattr(logging, args.log_level.upper(), None)
 if not isinstance(numeric_level, int):
-    raise ValueError(f'Invalid log level: {args.log_level}')
+    raise ValueError(f'Invalid log_box level: {args.log_level}')
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=numeric_level, filename=args.logfile, filemode='w')
 logging.getLogger('PyQt5').setLevel(logging.INFO)  # turn off DEBUG messages from PyQT5
@@ -33,23 +34,19 @@ try:
 except (FileNotFoundError, json.JSONDecodeError):
     parser.error("filed passed to --config is not a valid configuration file")
 
-
 app = QApplication(sys.argv)
 startDlg = StartDialog(config=config)
 if startDlg.exec():
     config = startDlg.config
-    logFile = LogFile(startDlg.log_filename)
-    physio_monitor = PhysioMonitorMainScreen(config, log=logFile)
-
-    logFile.widget = physio_monitor.logBox
+    physio_monitor = PhysioMonitorMainScreen(config)
     if not startDlg.isResumed:
-        logFile.append(logFile.getHeader(mouse=startDlg.mouse, drugList=startDlg.drugList))
+        physio_monitor.logBox.append(physio_monitor.logBox.getHeader(mouse=startDlg.mouse, drugList=startDlg.drugList))
     else:
-        with open(startDlg.log_filename, 'r', encoding='utf-8') as f:
+        with open(startDlg.log_path, 'r', encoding='utf-8') as f:
             previous_content = f.read()
-        logFile.content = previous_content
-        logFile.widget.setPlainText(previous_content)
-        logFile.append('#### resumed from here\n')
+        physio_monitor.logBox.content = previous_content
+        physio_monitor.logBox.widget.setPlainText(previous_content)
+        physio_monitor.logBox.append(f'#### PhysioMonitor resumed {datetime.now().isoformat(timespec="minutes")}\n')
     physio_monitor.show()
     physio_monitor.start()
     app.exec()

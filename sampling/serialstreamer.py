@@ -26,7 +26,7 @@ class SerialStreamer(Streamer):
             n = self._serial.in_waiting
             if not n > 0:
                 return self._empty
-            logger.debug(f"serial {self._serial.port} has {n} bytes in waiting")
+            # logger.debug(f"serial {self._serial.port} has {n} bytes in waiting")
             lines = self._serial.read(n).decode('ascii')
             lines = self._remain + lines
             if '\n' not in lines:
@@ -48,6 +48,7 @@ class SerialStreamer(Streamer):
             # discards a few lines to make sure the buffer does not contain partial lines
             self._serial.readline()
         self.__paused = False
+        logger.info(f"Started Reading from serial port {self._serial}")
 
     def stop(self):
         self.__paused = True

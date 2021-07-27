@@ -4,6 +4,7 @@ import logging
 import os
 import threading
 import time
+from typing import List
 
 import numpy as np
 import pygame
@@ -20,9 +21,9 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QDialog, QDoubleSpinBo
 
 from GUI.Models import DoubleSpinBoxDelegate, DrugTableModel
 from GUI.scope import ScopeLayoutWidget, PagedScope, ScrollingScope
-from misc import Drug, Sex, Mouse, LogFile
+from misc import Drug, Sex, Mouse, LogBox
 from pumps import SyringePumps
-from pumps.SyringePumps import SyringePumpException, AVAIL_PUMPS
+from pumps.SyringePumps import SyringePumpException, AVAIL_PUMP_MODULES
 # noinspection SpellCheckingInspection
 from sampling import AVAIL_ACQ_MODULES
 
@@ -434,9 +435,9 @@ class DrugPanel(QWidget):
 
     _drugName: str
     _drugVolume: float
-    _log: LogFile
+    _logBox: LogBox
 
-    def __init__(self, parent, drug_name, drug_volume, alarm_sound_filename=None, log: LogFile = None):
+    def __init__(self, parent, drug_name, drug_volume, alarm_sound_filename=None, log_box: LogBox = None):
         super().__init__(parent)
         uic.loadUi('./GUI/DrugPanel.ui', self)
 
@@ -446,8 +447,7 @@ class DrugPanel(QWidget):
         self._drugName = drug_name
         self._drugVolume = drug_volume
         self._injTime = None
-        self._log = log
-        self._LOG_FORMAT = "{time}\t|\t{drugVolume:>5.1f} μL\t{drugName}\n"
+        self._logBox = log_box
 
         self._drugNameLabel.setText(self._LABEL_FORMAT.format(drugName=self._drugName, drugVolume=self._drugVolume))
         self._drugNameLabel.mouseDoubleClickEvent = self.onDrugLabelClick
@@ -464,13 +464,10 @@ class DrugPanel(QWidget):
         self._customDoseButton.clicked.connect(self.onCustomDoseButtonClick)
         self._alarmButton.toggled.connect(self.onChoiceAlarm)
 
+    # noinspection DuplicatedCode
     def doInjectDrug(self, volume):
-        currTime = datetime.datetime.now().strftime("%H:%M:%S")
-        output = self._LOG_FORMAT.format(time=currTime, drugName=self._drugName, drugVolume=volume)
-        if self._log is not None:
-            self._log.append(output)
-        else:
-            print(output)
+        output = self._LABEL_FORMAT.format(drugName=self._drugName, drugVolume=volume)
+        self._logBox.writeToLog([], note=output)
         self._timer.start()
 
     # noinspection PyUnusedLocal
@@ -487,7 +484,7 @@ class DrugPanel(QWidget):
         if ok:
             self.doInjectDrug(val)
 
-    # noinspection PyUnusedLocal
+    # noinspection PyUnusedLocal,DuplicatedCode
     def onChoiceAlarm(self, event):
         if self._alarmButton.isChecked():
             val, ok = CustomDialog.getTime(self, value=self._timer.alarmThreshold,
@@ -522,18 +519,21 @@ class DrugPumpPanel(QWidget):
     _perfUnitComboBox: QComboBox
     _startPerfButton: QPushButton
     _pumpLabel: QLabel
+    _waitThread: threading.Thread
 
-    def __init__(self, parent, drugName, drugVolume, pump: SyringePumps.SyringePump, alarmSoundFile=None, logFile=None):
-        drugVolume = float(drugVolume)
+    def __init__(self, parent, drugName, drugVolume, pump: SyringePumps.SyringePump, alarmSoundFile=None,
+                 log_box: LogBox = None):
         super().__init__(parent)
-        self._LABEL_FORMAT = "{drugName} ({drugVolume:.0f} μL)"
+        uic.loadUi('./GUI/DrugPumpPanel.ui', self)
+
+        drugVolume = float(drugVolume)
+        self._LABEL_FORMAT = "{drugName} ({drugVolume:.1f} μL)"
         self._ALARM_LABEL_ON = "Alarm\n({:.0f} min)"
         self._ALARM_LABEL_OFF = "Set\nalarm"
         self._drugName = drugName
         self._drugVolume = drugVolume
         self._injTime = None
-        self._logFile = logFile
-        self._LOG_FORMAT = "{time}\t|\t{drugVolume:>5.1f} μL\t{drugName}\n"
+        self._logBox = log_box
 
         self._drugNameLabel.setText(self._LABEL_FORMAT.format(drugName=self._drugName, drugVolume=self._drugVolume))
         self._drugNameLabel.mouseDoubleClickEvent = self.onDrugLabelClick
@@ -550,44 +550,45 @@ class DrugPumpPanel(QWidget):
         self._customDoseButton.clicked.connect(self.onCustomDoseButtonClick)
         self._alarmButton.toggled.connect(self.onChoiceAlarm)
 
-        self._START_PERF_FORMAT = "{time}\t>> Start perf ({rate:.2f} {units})\t{drugName}\n"
-        self._STOP_PERF_FORMAT = "{time}\t<< End perf\t{drugName}\n"
+        self._START_PERF_FORMAT = ">> Start perf {drugName} ({rate:.2f} {units})"
+        self._STOP_PERF_FORMAT = "<< End perf\t{drugName}"
         self._pump = pump
         self._drugName = drugName
         self._drugVolume = drugVolume
         self._injTime = None
-        self._logFile = logFile
+        self._logBox = log_box
         self._timer.setup(pumpPanel=self, alarmSoundFile=alarmSoundFile)
 
+        # FIXME: this does not work??
         for widget in [self._autoInjectCheckBox, self._fullDoseButton, self._halfDoseButton, self._startPerfButton]:
             widget.setStyle(IconProxyStyle(widget.style()))
-        self._perfRateSpinBox.setMinimum(self.pump.minVal)
-        self._perfRateSpinBox.setMaximum(self.pump.maxVal)
+        self._perfRateSpinBox.setMinimum(self._pump.minVal)
+        self._perfRateSpinBox.setMaximum(self._pump.maxVal)
 
-        self._abortInjectButton = QPushButton('Abort')
+        self._abortInjectButton = QPushButton('Abort', parent=self)
         self._abortInjectButton.setIcon(self.style().standardIcon(QStyle.SP_BrowserStop))
         self._abortInjectButton.setVisible(False)
         self._abortInjectButton.clicked.connect(self.abortInjection)
 
         self._startPerfButton.toggled.connect(self.onTogglePerf)
-        self._autoInjectCheckBox.toggled = self.onToggleAutoInject
+        self._autoInjectCheckBox.toggled.connect(self.onToggleAutoInject)
 
+        self._perfUnitComboBox.addItems(self._pump.getPossibleUnits())
         self.updateFromPump()
 
     def onTogglePerf(self):
-        currTime = datetime.datetime.now().strftime("%H:%M:%S")
-        if self.pump.isRunning():
-            self.pump.stop()
-            self._logFile.append(self._STOP_PERF_FORMAT.format(time=currTime, drugName=self._drugName))
+        if self._pump.isRunning():
+            self._pump.stop()
+            self._logBox.writeToLog([], note=self._STOP_PERF_FORMAT.format(drugName=self._drugName))
         else:
             try:
-                self.pump.setRate(self._perfRateSpinBox.value(), self._perfRateUnitsComboBox.currentIndex())
-                self.pump.clearTargetVolume()
-                self.pump.start()
-                self._logFile.append(self._START_PERF_FORMAT.format(time=currTime,
-                                                                    drugName=self._drugName,
-                                                                    rate=self._perfRateSpinBox.value(),
-                                                                    units=self._perfRateUnitsComboBox.currentText()))
+                self._pump.setRate(self._perfRateSpinBox.value(), self._perfUnitComboBox.currentIndex())
+                self._pump.clearTargetVolume()
+                self._pump.start()
+                self._logBox.writeToLog([], note=self._START_PERF_FORMAT.format(
+                    drugName=self._drugName,
+                    rate=self._perfRateSpinBox.value(),
+                    units=self._perfUnitComboBox.currentText()))
             except SyringePumps.ValueOORException:
                 # noinspection PyTypeChecker
                 QMessageBox.information(None, 'Value OOR', 'ERROR: value is out of range for pump')
@@ -600,21 +601,26 @@ class DrugPumpPanel(QWidget):
     def updateFromPump(self):
         currRate = self._pump.getRate()
         currUnits = self._pump.getUnits()
-        currDir = self._pump.getDirection()
         self._perfRateSpinBox.setValue(currRate)
-        self._perfRateUnitsComboBox.setCurrentIndex(currUnits)
-        if currDir != 0:
-            self._perfStartButton.setChecked(True)
-            self.enablePerfusionButtons(False)
-        else:
-            self._perfStartButton.setChecked(False)
+        self._perfUnitComboBox.setCurrentIndex(currUnits)
+        if not self._pump.isRunning():
+            self._startPerfButton.setChecked(False)
             self.enablePerfusionButtons(True)
+        else:
+            self._startPerfButton.blockSignals(True)
+            self._startPerfButton.setChecked(True)
+            self._startPerfButton.blockSignals(False)
+            self.enablePerfusionButtons(False)
 
+    # noinspection DuplicatedCode
     def doInjectDrug(self, volume):
         # in case the pump is currently infusing, we store the current values to restore after the
         # end of the injection
         currRate = self._pump.getRate()
-        currDir = self._pump.getDirection()
+        if not self._pump.isRunning():
+            currDir = self._pump.STATE.STOPPED
+        else:
+            currDir = self._pump.getDirection()
         currUnits = self._pump.getUnits()
 
         try:
@@ -624,32 +630,71 @@ class DrugPumpPanel(QWidget):
             self._pump.setRate(SyringePumps.BOLUS_RATE, SyringePumps.BOLUS_RATE_UNITS)
             self._pump.setTargetVolume(volume / 1000)  # volume is in uL but TargetVolume is in mL
             self._pump.start()
-            super().doInjectDrug(volume)
         except SyringePumps.ValueOORException:
             # noinspection PyTypeChecker
             QMessageBox.warning(None, "Value out of range", 'Cannot inject, value out of range')
-        finally:
-            # disable buttons to avoid double injections, and start a thread to wait for the injection
-            # to finish
-            self.enableInjectButtons(False)
-            th = threading.Thread(target=self.waitForEndOfInjection, args=(currRate, currUnits, currDir))
-            th.start()
+            return
+
+        output = self._LABEL_FORMAT.format(drugName=self._drugName, drugVolume=volume)
+        self._logBox.writeToLog([], note=output)
+        self._timer.start()
+        # disable buttons to avoid double injections, and start a thread to wait for the injection
+        # to finish
+        self.enableInjectButtons(False)
+        self._waitThread = threading.Thread(target=self.waitForEndOfInjection, args=(currRate, currUnits, currDir))
+        self._waitThread.start()
+
+    # noinspection PyUnusedLocal
+    def onFullDoseButtonClick(self, event):
+        self.doInjectDrug(self._drugVolume)
+
+    # noinspection PyUnusedLocal
+    def onHalfDoseButtonClick(self, event):
+        self.doInjectDrug(self._drugVolume / 2)
+
+    # noinspection PyUnusedLocal
+    def onCustomDoseButtonClick(self, event):
+        val, ok = CustomDialog.getDouble(self, value=self._drugVolume, text="Enter custom amount (μL)")
+        if ok:
+            self.doInjectDrug(val)
+
+        # noinspection PyUnusedLocal
+
+    # noinspection PyUnusedLocal,DuplicatedCode
+    def onChoiceAlarm(self, event):
+        if self._alarmButton.isChecked():
+            val, ok = CustomDialog.getTime(self, value=self._timer.alarmThreshold,
+                                           text='Time before alarm')
+            if ok:
+                self._timer.setAlarmThreshInMinutes(val)
+                self._alarmButton.setText(self._ALARM_LABEL_ON.format(val))
+            else:
+                self._alarmButton.setChecked(False)
+        else:
+            self._timer.setAlarmThreshInMinutes(None)
+            self._alarmButton.setText(self._ALARM_LABEL_OFF)
 
     def enableInjectButtons(self, enabled: bool):
         self._fullDoseButton.setEnabled(enabled)
         self._halfDoseButton.setEnabled(enabled)
         self._customDoseButton.setEnabled(enabled)
-
+        # show the abort button
+        geom = self._fullDoseButton.geometry().united(self._halfDoseButton.geometry()).united(
+            self._customDoseButton.geometry())
+        self._abortInjectButton.setGeometry(geom)
         self._abortInjectButton.setVisible(not enabled)
 
     def enablePerfusionButtons(self, enabled: bool):
         self._perfRateSpinBox.setEnabled(enabled)
-        self._perfRateUnitsComboBox.setEnabled(enabled)
+        self._perfUnitComboBox.setEnabled(enabled)
 
     # noinspection PyUnusedLocal
     def abortInjection(self, event):
         if self._pump.isRunning():
             self._pump.stop()
+        while self._waitThread.is_alive():
+            # wait for thread to finish
+            time.sleep(0.01)
         self.enableInjectButtons(True)
 
     def waitForEndOfInjection(self, restoreRate, restoreUnits, restoreDir):
@@ -658,21 +703,25 @@ class DrugPumpPanel(QWidget):
             time.sleep(0.1)
             pass
             logger.debug('pump is still running')
-        # logger.debug('pump is finished pumping')
+        logger.debug('pump is finished pumping')
         self.enableInjectButtons(True)
-        # logger.debug("restoring previous pump state")
+        logger.debug("restoring previous pump state")
         self._pump.setRate(restoreRate, restoreUnits)
-        if restoreDir != 0:
+        if not restoreDir == self._pump.STATE.STOPPED:
             self._pump.setDirection(restoreDir)
+            self._pump.clearTargetVolume()
             self._pump.start()
         self.updateFromPump()
 
     # noinspection PyUnusedLocal
-    def onCustomDoseButtonClick(self, event):
-        val, ok = CustomDialog.getDouble(self, value=self._drugVolume, text="Enter custom amount (μL)",
-                                         min_val=0.001, max_val=9999.)
-        if ok:
-            self.doInjectDrug(val)
+    def onDrugLabelClick(self, event):
+        pass  # FIXME: need to implement this
+        # drugName, drugVolume, ok = CustomDialog.getDrugVolume(self, self._drugName, self._drugVolume)
+        # if ok == QDialog.Accepted:
+        #     self._drugName = drugName
+        #     self._drugVolume = drugVolume
+        #     self._drugNameLabel.setText(
+        #         self._LABEL_FORMAT.format(drugName=self._drugName, drugVolume=self._drugVolume))
 
 
 class PhysioMonitorMainScreen(QMainWindow):
@@ -683,103 +732,16 @@ class PhysioMonitorMainScreen(QMainWindow):
     otherDrugButton: QPushButton
     addNoteButton: QPushButton
 
-    def __init__(self, config, log):
+    def __init__(self, config: dict):
         super().__init__()
         # Load the UI Page
         uic.loadUi('./GUI/MainScreen.ui', self)
         self.config = config
-        self.log = log
+        self.setWindowIcon(QIcon('../media/icon.png'))
 
         ##
-        # Configure acquisition system(s)
-        ##
-        self.__streams = []
-        for acq_module in config['acquisition-modules']:
-            if acq_module['module-name'] not in AVAIL_ACQ_MODULES:
-                # noinspection PyTypeChecker
-                QMessageBox.critical(None, 'Wrong acquisition module',
-                                     f'ERROR: wrong acquisition module {acq_module["module-name"]}.\n'
-                                     'Must be one of: ' + ','.join(AVAIL_ACQ_MODULES.keys()))
-                raise ValueError('Wrong acquisition module in config file')
-            acqMod = AVAIL_ACQ_MODULES[acq_module["module-name"]]
-            if acqMod is None:
-                raise ModuleNotFoundError(f'ERROR: module {acq_module["module-name"]} cannot be loaded')
-            self.__streams.append(acqMod(sampling_rate=acq_module['sampling-rate'],
-                                         **acq_module['module-args']))
-
-        ##
-        # Serial port(s) for syringe pump
-        ##
-        self.serialPorts = []
-        for serial_conf in self.config['serial-ports']:
-            try:
-                ser = serial.serial_for_url(serial_conf['port'], serial_conf['baud-rate'],
-                                            bytesize=serial_conf['byte-size'], parity=serial_conf['parity'],
-                                            stopbits=serial_conf['stop-bits'],
-                                            timeout=serial_conf['timeout'])
-            except serial.SerialException:
-                ser = None
-            if ser is None:
-                # noinspection PyTypeChecker
-                QMessageBox.warning(None, 'Serial port error',
-                                    'Cannot open serial port "{:s}"!\n'
-                                    'Serial connection will not be available'.format(serial_conf['port']))
-            self.serialPorts.append(ser)
-
-        ##
-        # Syringe pump(s)
-        ##
-        self.pumps = []
-        for pump_conf in self.config['pumps']:
-            model = pump_conf['model']
-            pump = None
-            if model not in AVAIL_PUMPS:
-                raise ValueError('Incorrect pump model: {}'.format(model))
-            # sometimes, it takes a couple of tries for the pump to answer,
-            # so we'll try in a loop and test if it was successful
-            success = False
-            while not success:
-                for _ in range(3):
-                    try:
-                        pump = AVAIL_PUMPS[model](serial_port=self.serialPorts[pump_conf['serial-port']])
-                        pump.isRunning()  # check that pump is working, should raise Exception if not
-                        success = True
-                        pump.doBeep()
-                        break
-                    except SyringePumpException:
-                        pump = None
-                if not success:
-                    # noinspection PyTypeChecker
-                    ans = QMessageBox.question(None, "Pump not responding",
-                                               f"Cannot communicate with the pump {model}, maybe it is off?\nRetry?")
-                    if ans == QMessageBox.No:
-                        success = True
-            self.pumps.append(pump)
-
-        # Timer with callback to update plots
-        self.__refreshScopeTimer = QTimer()
-        self.__refreshScopeTimer.timeout.connect(self.update)
-
-        # Timer for dumping physio values to log
-        self.__physioToLogTimer = QTimer()
-        self.__physioToLogTimer.timeout.connect(self.writePhysioToLog)
-
-        for i, drug in enumerate(config['drug-list']):
-            if drug.pump is not None and self.pumps[drug.pump - 1] is not None:
-                panel = DrugPumpPanel(None, drug.name, drug.volume, pump=self.pumps[drug.pump - 1],
-                                      # FIXME should pumps be zero indexed?
-                                      alarmSoundFile='./media/beep3x6.wav', logFile=self.log)
-            else:
-                panel = DrugPanel(None, drug.name, drug.volume,
-                                  alarm_sound_filename='./media/beep3x6.wav', log=self.log)
-            self.drugPanelsLayout.addWidget(panel)
-
-        ##
-        # Signals / Slots
-        ##
-        self.otherDrugButton.clicked.connect(self.addNewDrug)
-        self.addNoteButton.clicked.connect(self.addNote)
-
+        # Plots
+        ###
         for i, channel in enumerate(config['channels']):
             plot = PagedScope(
                 acquisition_module_index=channel['acquisition-module-index'],
@@ -813,7 +775,96 @@ class PhysioMonitorMainScreen(QMainWindow):
                 alarmSoundFile=channel['alarm-sound-file']
             )
             self._graphLayout.addItem(plot, i, 1)
-        self.setWindowIcon(QIcon('../media/icon.png'))
+
+        self.logBox = LogBox(path=config['log-path'], widget=self.logTextEdit, nb_measurements=len(config['channels']))
+
+        ##
+        # Configure acquisition system(s)
+        ##
+        self.__streams = []
+        for acq_module in config['acquisition-modules']:
+            if acq_module['module-name'] not in AVAIL_ACQ_MODULES:
+                # noinspection PyTypeChecker
+                QMessageBox.critical(None, 'Wrong acquisition module',
+                                     f'ERROR: wrong acquisition module {acq_module["module-name"]}.\n'
+                                     'Must be one of: ' + ','.join(AVAIL_ACQ_MODULES.keys()))
+                raise ValueError('Wrong acquisition module in config file')
+            acqMod = AVAIL_ACQ_MODULES[acq_module["module-name"]]
+            if acqMod is None:
+                raise ModuleNotFoundError(f'ERROR: module {acq_module["module-name"]} cannot be loaded')
+            self.__streams.append(acqMod(sampling_rate=acq_module['sampling-rate'],
+                                         **acq_module['module-args']))
+
+        ##
+        # Serial port(s) for syringe pump
+        ##
+        self.serialPorts = []
+        for serial_conf in self.config['syringe-pump']["serial-ports"]:
+            try:
+                ser = serial.Serial(**serial_conf)
+            except serial.SerialException:
+                ser = None
+            if ser is None:
+                # noinspection PyTypeChecker
+                QMessageBox.warning(None, 'Serial port error',
+                                    'Cannot open serial port "{:s}"!\n'
+                                    'Serial connection will not be available'.format(serial_conf['port']))
+            self.serialPorts.append(ser)
+
+        ##
+        # Syringe pump(s)
+        ##
+        self.pumps = []
+        for pump_conf in self.config['syringe-pump']['pumps']:
+            model = pump_conf['module-name']
+            if model not in AVAIL_PUMP_MODULES:
+                raise ValueError(f'Invalid module "{model}". Must be one of {", ".join(AVAIL_PUMP_MODULES.keys())}')
+            model = AVAIL_PUMP_MODULES[model]
+            pump = None
+            # sometimes, it takes a couple of tries for the pump to answer,
+            # so we'll try in a loop and test if it was successful
+            success = False
+            while not success:
+                for _ in range(3):
+                    try:
+                        pump = model(serial_port=self.serialPorts[pump_conf["serial-port"]],
+                                     **pump_conf['module-args'])
+                        pump.isRunning()  # check that pump is working, should raise Exception if not
+                        success = True
+                        break
+                    except SyringePumpException:
+                        pump = None
+                if not success:
+                    # noinspection PyTypeChecker
+                    ans = QMessageBox.question(None, "Pump not responding",
+                                               f"Cannot communicate with the pump {model}, maybe it is off?\nRetry?")
+                    if ans == QMessageBox.No:
+                        success = True
+            self.pumps.append(pump)
+
+        for i, drug in enumerate(config['drug-list']):
+            if drug.pump is not None and self.pumps[drug.pump - 1] is not None:
+                panel = DrugPumpPanel(None, drug.name, drug.volume, pump=self.pumps[drug.pump - 1],
+                                      # FIXME should pumps be zero indexed?
+                                      alarmSoundFile='./media/beep3x6.wav', log_box=self.logBox)
+            else:
+                panel = DrugPanel(None, drug.name, drug.volume,
+                                  alarm_sound_filename='./media/beep3x6.wav', log_box=self.logBox)
+            self.drugPanelsLayout.addWidget(panel)
+
+        # Timer with callback to update plots
+        self.__refreshScopeTimer = QTimer()
+        self.__refreshScopeTimer.timeout.connect(self.update)
+
+        # Timer for dumping physio values to log_box
+        self.__physioToLogTimer = QTimer()
+        self.__physioToLogTimer.timeout.connect(self.writePhysioToLog)
+
+        ##
+        # Signals / Slots
+        ##
+        self.otherDrugButton.clicked.connect(self.addNewDrug)
+        self.addNoteButton.clicked.connect(self.addNote)
 
     def start(self):
         for stream in self.__streams:
@@ -833,7 +884,7 @@ class PhysioMonitorMainScreen(QMainWindow):
                 d = d[plot.channel_index, :]
                 plot.append(d)
 
-    def getPhysioMeasurements(self):
+    def getPhysioMeasurements(self) -> List:
         measurements = []
         for i in range(len(self._graphLayout.centralWidget.items)):
             plot: ScrollingScope = self._graphLayout.getItem(i, 1)
@@ -845,22 +896,17 @@ class PhysioMonitorMainScreen(QMainWindow):
         return measurements
 
     def writePhysioToLog(self):
-        self.writeToLog(*self.getPhysioMeasurements())
-
-    def writeToLog(self, *args, sep='\t|\t'):
-        currTime = datetime.datetime.now().strftime("%H:%M:%S")
-        text = sep.join([currTime] + list(args) + [''])
-        self.log.append(text)
+        self.logBox.writeToLog(self.getPhysioMeasurements())
 
     def addNote(self):
-        text, ok = QInputDialog.getText(self, 'Add a note to the log', 'Note:')
+        text, ok = QInputDialog.getText(self, 'Add a note to the log_box', 'Note:')
         if ok and len(text) > 0:
-            self.writeToLog(self.getPhysioMeasurements() + [text])
+            self.logBox.writeToLog(self.getPhysioMeasurements(), note=text)
 
     def addNewDrug(self):
         name, volume, ok = CustomDialog.getDrugVolume(self, name="", volume=0, addInject=True)
         if ok == QDialog.Accepted or ok == QDialogButtonBox.YesToAll:
-            newPanel = DrugPanel(None, drug_name=name, drug_volume=volume, log=self.logFile)
+            newPanel = DrugPanel(None, drug_name=name, drug_volume=volume, log_box=self.logBox)
             self.drugPanelsLayout.addWidget(newPanel)
             if ok == QDialogButtonBox.YesToAll:
                 newPanel.onFullDoseButtonClick(None)
@@ -918,22 +964,23 @@ class StartDialog(QDialog):
         if self.config['create-sub-folder']:
             self.saveFolder = os.path.join(self.saveFolder, datetime.date.today().isoformat())
         if 'log-filename' not in self.config:
-            self.log_filename = os.path.join(self.saveFolder, 'LOGFILE.TXT')
+            self.log_path = os.path.join(self.saveFolder, 'LOGFILE.TXT')
         else:
-            self.log_filename = os.path.join(self.saveFolder, self.config['log-filename'])
+            self.log_path = os.path.join(self.saveFolder, self.config['log-filename'])
+        self.config['log-path'] = self.log_path
 
         self.isResumed = False
-        if os.path.isfile(self.log_filename):
-            # we already have a log file in the folder, ask whether to resume
+        if os.path.isfile(self.log_path):
+            # we already have a log_box file in the folder, ask whether to resume
             # noinspection PyTypeChecker
             dlg = QMessageBox.question(None, 'Previous session detected',
                                        'Do you want to resume the previous session?',
                                        QMessageBox.Yes | QMessageBox.No)
             if dlg == QMessageBox.Yes:
-                mouse, drugs = LogFile.parse(self.log_filename)
+                mouse, drugs = LogBox.parse(self.log_path)
                 if mouse is None:
                     # noinspection PyTypeChecker
-                    QMessageBox.information(None, "Could not parse", "Failed to parse previous log file.")
+                    QMessageBox.information(None, "Could not parse", "Failed to parse previous log_box file.")
                 else:
                     self.mouse = mouse
                     self.drugList = drugs

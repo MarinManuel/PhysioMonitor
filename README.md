@@ -20,11 +20,14 @@ The software needs a configuration file in JSON format to run. The global struct
     See list of supported modules and configuration options below
   "channels": list,
     List of channels and their configuration. See below for details
-  "pump-serials": list,
-    List of serial ports to be used for controlling syringe pumps
-  "pumps": list,
-    List of syringe pumps and their configuration. See list of supported
-    modules and their configuration below.
+  "syringe-pump": 
+    "serial-ports": list,
+      This is a list of serial ports to open in order to communicate with the syringe pump(s).
+      Contains a list of parameters to pass to serial.Serial(). See https://pythonhosted.org/pyserial/pyserial_api.html#native-ports
+      for a complete list.
+    "pumps": list
+      List of syringe pumps and their configuration. See list of supported
+      modules and their configuration below.
 }
 ```
 ## Data acquisition modules
@@ -41,7 +44,7 @@ Each element of the list must contain the following items:
 ```
 Available data acquisition modules are:
 ### "demo"
-This module is intented for testing and debugging. It is a dummy modules that does not require external hardware.
+This module is intended for testing and debugging. It is a dummy modules that does not require external hardware.
 It reads a CSV file (or any file that can be parsed by [`numpy.loadtxt`](https://numpy.org/doc/1.20/reference/generated/numpy.loadtxt.html#numpy.loadtxt)),
 and outputs the content at the given sampling rate.
 
@@ -127,6 +130,44 @@ Each channel is configured by the following intructions:
 - `alarm-high` - <span style="color:DarkGreen">float</span> - the upper threshold for the alarm.
 - `alarm-sound-file` - <span style="color:DarkGreen">string</span> - path to an OGG or a WAV sound file that is being played when the alarm is triggered.
 - `alarmBGColor` - <span style="color:DarkGreen">var</span> - Color of the window when the alarm is triggered.
+
+## Syringe Pumps
+PhysioMonitor can control serial pumps through serial communication. Currently, the following models are supported: 
+- fake pump, for testing purposes
+- [Aladdin pump](https://www.wpiinc.com/var-2300-aladdin-single-syringe-pump)
+- [Harvard Apparatus Model 11 plus (old model)](https://www.harvardapparatus.com/media/harvard/pdf/Pump11_2002.pdf)
+
+Parameters:
+### `serial-ports`
+list of serial ports to open. Each of the element contains parameters that can be passed to 
+[serial.Serial()](https://pythonhosted.org/pyserial/pyserial_api.html#native-ports).
+
+### `pumps`
+Each element of the list must contain the following items:
+```
+{
+  "module-name": str,
+    Name of the module to use. One of "demo", "aladdin" or "model11plus".
+  "serial-port": int,
+    index of the serial port to use to control that syringe pump.
+  "module-args": section,
+    Section containing the parameters needed to create the modules. See below for each module's options.
+}
+```
+Available modules are:
+#### "dummy"
+Fake pump, for testing purposes. "module-args" is empty
+
+#### "aladdin"
+Module for [Aladdin syringe pumps](https://www.wpiinc.com/var-2300-aladdin-single-syringe-pump).
+
+The arguments to supply in `"module-args"` are:
+- `adress`: unique network address to identify the pump to the computer. 
+  Network addresses are from 00 to 99. If the network consists of only 1 pump, set the pump’s address to 0.
+  
+#### "modell11plus"
+Module for [Harvard Apparatus Model 11 plus (old model)](https://www.harvardapparatus.com/media/harvard/pdf/Pump11_2002.pdf).
+"module-args" is empty.
 
 # Installation
  - TODO
