@@ -1,5 +1,5 @@
 {
-  "base-folder": "./",
+  "base-folder": "/home/RECORDS/",
   "create-sub-folder": true,
   "log-filename": "SurgicalLog.txt",
   "measurements-output-period-min": 5,
@@ -11,16 +11,13 @@
         "device": 0,
         "channels": [
           0,
-          3,
-          7
+          1
         ],
         "input_modes": [
-          "SINGLE_ENDED",
           "SINGLE_ENDED",
           "SINGLE_ENDED"
         ],
         "input_ranges": [
-          "BIP10VOLTS",
           "BIP10VOLTS",
           "BIP10VOLTS"
         ]
@@ -30,8 +27,8 @@
       "module-name": "serial",
       "sampling-rate": 50,
       "module-args": {
-        "port": "test/tty-read",
-        "baudrate": 9600
+        "port": "/dev/ttyUSB1",
+        "baudrate": 115200
       }
     }
   ],
@@ -42,7 +39,7 @@
       "window-size": 1,
       "line-color": "#007F00",
       "line-width": 2,
-      "label": "MCC-0",
+      "label": "EKG",
       "units": "V",
       "scale": 1.0,
       "offset": 0.0,
@@ -55,7 +52,7 @@
       "auto-trigger-level": true,
       "trend-window-size": 1800,
       "trend-period": 20,
-      "trend-function": null,
+      "trend-function": "HR",
       "trend-function-args": {},
       "trend-units": "bpm",
       "trend-autoscale": false,
@@ -72,28 +69,28 @@
       "window-size": 1,
       "line-color": "b",
       "line-width": 2,
-      "label": "MCC-3",
-      "units": "V",
-      "scale": 1.0,
+      "label": "Lung Pressure",
+      "units": "cmH2O",
+      "scale": 20,
       "offset": 0.0,
       "autoscale": false,
-      "ymin": -5,
-      "ymax": 5,
+      "ymin": 0,
+      "ymax": 20,
       "persistence": 1,
       "trigger-mode": "AUTO",
       "trigger-level": 7,
       "auto-trigger-level": false,
       "trend-window-size": 1800,
       "trend-period": 1,
-      "trend-function": null,
+      "trend-function": "lastPeak",
       "trend-function-args": {
         "peakSize": 1.0
       },
-      "trend-units": "%",
+      "trend-units": "cmH20",
       "trend-autoscale": false,
       "trend-ymin": 0.0,
-      "trend-ymax": 6.0,
-      "alarm-enabled": true,
+      "trend-ymax": 20.0,
+      "alarm-enabled": false,
       "alarm-low": 3,
       "alarm-high": 5,
       "alarm-sound-file": "media/beep2.wav"
@@ -104,12 +101,12 @@
       "window-size": 1,
       "line-color": "#CC0000",
       "line-width": 2,
-      "label": "MCC-7",
-      "units": "V",
+      "label": "PCO2",
+      "units": "%",
       "scale": 1.0,
       "offset": 0.0,
       "autoscale": false,
-      "ymin": -5,
+      "ymin": 0,
       "ymax": 5,
       "persistence": 1,
       "trigger-mode": "AUTO",
@@ -117,7 +114,39 @@
       "auto-trigger-level": false,
       "trend-window-size": 1800,
       "trend-period": 1,
-      "trend-function": null,
+      "trend-function": "lastPeak",
+      "trend-function-args": {
+        "peakSize": 1.0
+      },
+      "trend-units": "%",
+      "trend-autoscale": false,
+      "trend-ymin": 0,
+      "trend-ymax": 5,
+      "alarm-enabled": true,
+      "alarm-low": 3.5,
+      "alarm-high": 4.5,
+      "alarm-sound-file": "media/beep3.wav"
+    },
+    {
+      "acquisition-module-index": 1,
+      "channel-index": 1,
+      "window-size": 10,
+      "line-color": "#CC0000",
+      "line-width": 2,
+      "label": "Temperature",
+      "units": "°C",
+      "scale": 1.0,
+      "offset": 0.0,
+      "autoscale": false,
+      "ymin": 35,
+      "ymax": 40,
+      "persistence": 1,
+      "trigger-mode": "AUTO",
+      "trigger-level": 0.0,
+      "auto-trigger-level": false,
+      "trend-window-size": 1800,
+      "trend-period": 30,
+      "trend-function": "average",
       "trend-function-args": {},
       "trend-units": "°C",
       "trend-autoscale": false,
@@ -125,8 +154,8 @@
       "trend-ymax": 40,
       "alarm-enabled": true,
       "alarm-low": 36.5,
-      "alarm-high": 38.5,
-      "alarm-sound-file": "media/beep6.wav"
+      "alarm-high": 37.5,
+      "alarm-sound-file": "media/beep4.wav"
     }
   ],
   "syringe-pump": {
