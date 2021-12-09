@@ -1,14 +1,41 @@
 {
+  "base-folder": "/home/RECORDS/",
+  "create-sub-folder": true,
   "log-filename": "SurgicalLog.txt",
-  "acquisition": {
-    "module": "demo",
-    "module-args": {
-      "nChans": 3
+  "measurements-output-period-min": 5,
+  "acquisition-modules": [
+    {
+      "module-name": "mcc",
+      "sampling-rate": 1000,
+      "module-args": {
+        "device": 0,
+        "channels": [
+          0,
+          1
+        ],
+        "input_modes": [
+          "SINGLE_ENDED",
+          "SINGLE_ENDED"
+        ],
+        "input_ranges": [
+          "BIP10VOLTS",
+          "BIP10VOLTS"
+        ]
+      }
     },
-    "sample-rate": 1000
-  },
+    {
+      "module-name": "serial",
+      "sampling-rate": 50,
+      "module-args": {
+        "port": "/dev/ttyUSB1",
+        "baudrate": 115200
+      }
+    }
+  ],
   "channels": [
     {
+      "acquisition-module-index": 0,
+      "channel-index": 0,
       "window-size": 1,
       "line-color": "#007F00",
       "line-width": 2,
@@ -19,7 +46,7 @@
       "autoscale": true,
       "ymin": 0,
       "ymax": 1,
-      "remanence": 3,
+      "persistence": 3,
       "trigger-mode": "RISING",
       "trigger-level": 1.0,
       "auto-trigger-level": true,
@@ -30,15 +57,49 @@
       "trend-units": "bpm",
       "trend-autoscale": false,
       "trend-ymin": 300,
-      "trend-ymax": 900,
+      "trend-ymax": 700,
       "alarm-enabled": true,
       "alarm-low": 350,
       "alarm-high": 600,
       "alarm-sound-file": "media/beep1.wav"
     },
     {
-      "window-size": 10,
+      "acquisition-module-index": 0,
+      "channel-index": 1,
+      "window-size": 1,
       "line-color": "b",
+      "line-width": 2,
+      "label": "Lung Pressure",
+      "units": "cmH2O",
+      "scale": 20,
+      "offset": 0.0,
+      "autoscale": false,
+      "ymin": 0,
+      "ymax": 20,
+      "persistence": 1,
+      "trigger-mode": "AUTO",
+      "trigger-level": 7,
+      "auto-trigger-level": false,
+      "trend-window-size": 1800,
+      "trend-period": 1,
+      "trend-function": "lastPeak",
+      "trend-function-args": {
+        "peakSize": 1.0
+      },
+      "trend-units": "cmH20",
+      "trend-autoscale": false,
+      "trend-ymin": 0.0,
+      "trend-ymax": 20.0,
+      "alarm-enabled": false,
+      "alarm-low": 3,
+      "alarm-high": 5,
+      "alarm-sound-file": "media/beep2.wav"
+    },
+    {
+      "acquisition-module-index": 1,
+      "channel-index": 2,
+      "window-size": 1,
+      "line-color": "#CC0000",
       "line-width": 2,
       "label": "PCO2",
       "units": "%",
@@ -46,70 +107,69 @@
       "offset": 0.0,
       "autoscale": false,
       "ymin": 0,
-      "ymax": 6,
-      "remanence": 1,
+      "ymax": 5,
+      "persistence": 1,
       "trigger-mode": "AUTO",
-      "trigger-level": 7,
+      "trigger-level": 0.0,
       "auto-trigger-level": false,
-      "trend-window-size": 60,
+      "trend-window-size": 1800,
       "trend-period": 1,
       "trend-function": "lastPeak",
       "trend-function-args": {
         "peakSize": 1.0
       },
-      "trend-units": "cmH2O",
+      "trend-units": "%",
       "trend-autoscale": false,
-      "trend-ymin": 0.0,
-      "trend-ymax": 6.0,
+      "trend-ymin": 0,
+      "trend-ymax": 5,
       "alarm-enabled": true,
-      "alarm-low": 3,
-      "alarm-high": 5,
-      "alarm-sound-file": "media/beep2.wav"
+      "alarm-low": 3.5,
+      "alarm-high": 4.5,
+      "alarm-sound-file": "media/beep3.wav"
     },
     {
+      "acquisition-module-index": 1,
+      "channel-index": 1,
       "window-size": 10,
       "line-color": "#CC0000",
       "line-width": 2,
       "label": "Temperature",
       "units": "°C",
-      "scale": 20.0,
+      "scale": 1.0,
       "offset": 0.0,
       "autoscale": false,
-      "ymin": 0,
+      "ymin": 35,
       "ymax": 40,
-      "remanence": 1,
+      "persistence": 1,
       "trigger-mode": "AUTO",
       "trigger-level": 0.0,
       "auto-trigger-level": false,
-      "trend-window-size": 60,
-      "trend-period": 1,
+      "trend-window-size": 1800,
+      "trend-period": 30,
       "trend-function": "average",
       "trend-function-args": {},
       "trend-units": "°C",
       "trend-autoscale": false,
-      "trend-ymin": 36,
-      "trend-ymax": 39,
-      "alarm-enabled": false,
+      "trend-ymin": 35,
+      "trend-ymax": 40,
+      "alarm-enabled": true,
       "alarm-low": 36.5,
-      "alarm-high": 38.5,
-      "alarm-sound-file": "media/beep6.wav"
+      "alarm-high": 37.5,
+      "alarm-sound-file": "media/beep4.wav"
     }
   ],
-  "serial-ports": [
-    {
-      "port": "COM1",
-      "baud-rate": 1200,
-      "byte-size": 8,
-      "parity": "N",
-      "stop-bits": 1,
-      "timeout": 0
-    }
-  ],
-  "pumps": [
-    {
-      "model": "aladdin",
-      "serial-port": 0,
-      "address": 0
-    }
-  ]
+  "syringe-pump": {
+    "serial-ports": [
+      {
+        "port": null
+      }
+    ],
+    "pumps": [
+      {
+        "module-name": "dummy",
+        "serial-port": 0,
+        "module-args": {}
+      }
+    ]
+  }
 }
