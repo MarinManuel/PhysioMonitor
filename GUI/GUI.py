@@ -467,7 +467,9 @@ class DrugPanel(QWidget):
     # noinspection DuplicatedCode
     def doInjectDrug(self, volume):
         output = self._LABEL_FORMAT.format(drugName=self._drugName, drugVolume=volume)
-        self._logBox.writeToLog([], note=output)
+        if self._logBox is not None:
+            self._logBox.writeToLog([], note=output)
+        self._timer.reset(None)
         self._timer.start()
 
     # noinspection PyUnusedLocal
