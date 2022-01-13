@@ -411,6 +411,14 @@ class ScrollingScope(pg.PlotItem):
     def _menuSetYMax(self, value):
         self.ymax = value
 
+    def _menuSetTrendMin(self, value):
+        self._trendYmin = value
+        self._trendVB.setYRange(self._trendYmin, self._trendYmax)
+
+    def _menuSetTrendMax(self, value):
+        self._trendYmax = value
+        self._trendVB.setYRange(self._trendYmin, self._trendYmax)
+
     def _createMenu(self):
         self.vb.menu = QMenu()
         self.vb.menuAlarm = QMenu('Alarm')
@@ -439,6 +447,11 @@ class ScrollingScope(pg.PlotItem):
                                                         minVal=float('-inf'), maxVal=float('inf'))
         self.vb.menuYAxisLimits.lowSpin.valueChanged.connect(self._menuSetYMin)
         self.vb.menuYAxisLimits.highSpin.valueChanged.connect(self._menuSetYMax)
+        self.vb.menuTrendAxisLimits = MenuLowHighSpinAction(lowVal=self.ymin, highVal=self.ymax, units=self._units,
+                                                            labelHigh='Trend max', labelLow='Trend min',
+                                                            minVal=float('-inf'), maxVal=float('inf'))
+        self.vb.menuTrendAxisLimits.lowSpin.valueChanged.connect(self._menuSetTrendMin)
+        self.vb.menuTrendAxisLimits.highSpin.valueChanged.connect(self._menuSetTrendMax)
         if self.autoscale:
             self.vb.menuYAxisAutoscaleEnabled.setChecked(True)
             self.vb.menuYAxisLimits.lowSpin.setEnabled(False)
