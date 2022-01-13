@@ -17,7 +17,7 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QDialog, QDoubleSpinBo
     QSpinBox, QDialogButtonBox, QGridLayout, QSizePolicy, \
     QRadioButton, QStyle, QPlainTextEdit, QInputDialog, QApplication, \
     QCheckBox, QProxyStyle, QHeaderView, QComboBox, QDateEdit, QButtonGroup, QTextEdit, QTableView, \
-    QMessageBox, QMainWindow
+    QMessageBox, QMainWindow, QAbstractItemView
 
 from GUI.Models import DoubleSpinBoxDelegate, DrugTableModel
 from GUI.scope import ScopeLayoutWidget, PagedScope, ScrollingScope
@@ -1007,8 +1007,8 @@ class StartDialog(QDialog):
         # DRUG LIST TAB
         self.tableModel = DrugTableModel(self.drugList)
         self.drugTable.setModel(self.tableModel)
-        for i in range(1, self.tableModel.columnCount() - 1):
-            self.drugTable.setItemDelegateForColumn(i, DoubleSpinBoxDelegate(self))
+
+        self.drugTable.doubleClicked.connect(self.editEntry)
         self.editDrugButton.clicked.connect(self.editEntry)
         self.addDrugButton.clicked.connect(self.addEntry)
         self.delDrugButton.clicked.connect(self.removeEntry)
