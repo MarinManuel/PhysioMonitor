@@ -2,13 +2,9 @@
 Python application to track physiological parameters during surgery.
 
 It logs information about the subject of the experiment
-
-<img src="https://user-images.githubusercontent.com/65401298/127415327-a404b624-5452-46e0-a053-03f161095e88.png" width=300 alt="Mouse dialog screenshot">
-
-
+![Mouse dialog screenshot](https://user-images.githubusercontent.com/65401298/127415327-a404b624-5452-46e0-a053-03f161095e88.png)
 and the drugs to be injected during the surgery. Note that the software has the ability to control syringe pumps to perform injections with the click of a button.
-
-<img src="https://user-images.githubusercontent.com/65401298/127415413-20fd57d8-fac1-419b-80a7-3f5a21c8232c.png" width=300 alt="Drug configuration dialog screenshot">
+![Drug configuration dialog screenshot](https://user-images.githubusercontent.com/65401298/127415413-20fd57d8-fac1-419b-80a7-3f5a21c8232c.png)
 
 Main screen showing the controls to inject drugs, and the graphs showing the physiological parameters logged during the surgery
 ![screenshot of the main window](https://user-images.githubusercontent.com/65401298/127415473-396b8ed0-5d25-43b9-96ab-ede2eacf29cf.png)
