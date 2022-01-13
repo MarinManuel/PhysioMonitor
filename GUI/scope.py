@@ -447,7 +447,8 @@ class ScrollingScope(pg.PlotItem):
                                                         minVal=float('-inf'), maxVal=float('inf'))
         self.vb.menuYAxisLimits.lowSpin.valueChanged.connect(self._menuSetYMin)
         self.vb.menuYAxisLimits.highSpin.valueChanged.connect(self._menuSetYMax)
-        self.vb.menuTrendAxisLimits = MenuLowHighSpinAction(lowVal=self.ymin, highVal=self.ymax, units=self._units,
+        self.vb.menuTrendAxisLimits = MenuLowHighSpinAction(lowVal=self._trendYmin, highVal=self._trendYmax,
+                                                            units=self._trendUnits,
                                                             labelHigh='Trend max', labelLow='Trend min',
                                                             minVal=float('-inf'), maxVal=float('inf'))
         self.vb.menuTrendAxisLimits.lowSpin.valueChanged.connect(self._menuSetTrendMin)
@@ -457,6 +458,7 @@ class ScrollingScope(pg.PlotItem):
             self.vb.menuYAxisLimits.lowSpin.setEnabled(False)
             self.vb.menuYAxisLimits.highSpin.setEnabled(False)
         self.vb.menuYAxis.addAction(self.vb.menuYAxisLimits)
+        self.vb.menuYAxis.addAction(self.vb.menuTrendAxisLimits)
 
         self.vb.menu.addMenu(self.vb.menuAlarm)
         self.vb.menu.addMenu(self.vb.menuYAxis)
