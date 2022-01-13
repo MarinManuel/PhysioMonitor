@@ -27,7 +27,7 @@
       "module-name": "serial",
       "sampling-rate": 50,
       "module-args": {
-        "port": "/dev/ttyUSB0",
+        "port": "/dev/ttyUSB1",
         "baudrate": 115200
       }
     }
@@ -66,13 +66,13 @@
     {
       "acquisition-module-index": 0,
       "channel-index": 1,
-      "window-size": 10,
+      "window-size": 1,
       "line-color": "b",
       "line-width": 2,
       "label": "Lung Pressure",
       "units": "cmH2O",
       "scale": 20,
-      "offset": -2.0,
+      "offset": 0.0,
       "autoscale": false,
       "ymin": 0,
       "ymax": 20,
@@ -81,8 +81,8 @@
       "trigger-level": 7,
       "auto-trigger-level": false,
       "trend-window-size": 1800,
-      "trend-period": 10,
-      "trend-function": "avgPeak",
+      "trend-period": 1,
+      "trend-function": "lastPeak",
       "trend-function-args": {
         "peakSize": 1.0
       },
@@ -98,7 +98,7 @@
     {
       "acquisition-module-index": 1,
       "channel-index": 2,
-      "window-size": 10,
+      "window-size": 1,
       "line-color": "#CC0000",
       "line-width": 2,
       "label": "PCO2",
