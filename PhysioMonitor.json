@@ -84,7 +84,7 @@
       "trend-period": 10,
       "trend-function": "avgPeak",
       "trend-function-args": {
-        "peakSize": 1.0
+        "peakSize": 5.0
       },
       "trend-units": "cmH20",
       "trend-autoscale": false,

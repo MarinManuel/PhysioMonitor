@@ -425,8 +425,7 @@ class ScrollingScope(pg.PlotItem):
         # noinspection PyArgumentList
         self.vb.menuAlarmEnabled = QAction('Alarm enabled', self.vb.menuAlarm, checkable=True)
         self.vb.menuAlarm.addAction(self.vb.menuAlarmEnabled)
-        if self.alarmEnabled:
-            self.vb.menuAlarmEnabled.setChecked(True)
+        self.vb.menuAlarmEnabled.setChecked(self.alarmEnabled)
         self.vb.menuAlarmEnabled.toggled.connect(self._menuToggleAlarm)
         self.vb.menuAlarmLimits = MenuLowHighSpinAction(lowVal=self.alarmLow, highVal=self.alarmHigh,
                                                         units=self._trendUnits,
@@ -500,6 +499,11 @@ class MenuLowHighSpinAction(QWidgetAction):
         self.highSpin.setSuffix('' if len(units) == 0 else ' ' + units)
         layout.addRow(labelHigh, self.highSpin)
         layout.addRow(labelLow, self.lowSpin)
+        # see https://stackoverflow.com/q/70691792/1356000
+        w.setFocusPolicy(self.lowSpin.focusPolicy())
+        w.setFocusProxy(self.lowSpin)
+        w.setFocusPolicy(self.highSpin.focusPolicy())
+        w.setFocusProxy(self.highSpin)
         w.setLayout(layout)
         self.setDefaultWidget(w)
 
