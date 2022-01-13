@@ -39,6 +39,9 @@
        <property name="tabPosition">
         <enum>QTabWidget::North</enum>
        </property>
+       <property name="currentIndex">
+        <number>1</number>
+       </property>
        <widget class="QWidget" name="tabWidgetPage1">
         <attribute name="title">
          <string>Mouse</string>
@@ -222,7 +225,16 @@
               <enum>QAbstractScrollArea::AdjustToContents</enum>
              </property>
              <property name="editTriggers">
-              <set>QAbstractItemView::DoubleClicked|QAbstractItemView::EditKeyPressed|QAbstractItemView::SelectedClicked</set>
+              <set>QAbstractItemView::NoEditTriggers</set>
+             </property>
+             <property name="dragEnabled">
+              <bool>true</bool>
+             </property>
+             <property name="dragDropMode">
+              <enum>QAbstractItemView::DragOnly</enum>
+             </property>
+             <property name="defaultDropAction">
+              <enum>Qt::CopyAction</enum>
              </property>
              <property name="alternatingRowColors">
               <bool>true</bool>
