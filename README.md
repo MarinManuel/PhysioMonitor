@@ -183,4 +183,16 @@ Module for [Harvard Apparatus Model 11 plus (old model)](https://www.harvardappa
 "module-args" is empty.
 
 # Installation
- - TODO
+ 1. create a virtual environement for PhysioMonitor:
+```
+$ python3 -m venv ~/physio-env
+```
+ 2. clone the repository
+```
+$ git clone https://github.com/MarinManuel/PhysioMonitor.git
+```
+ 3. install pre-requisites
+```
+$ physio-venv/bin/pip install -r PhysioMonitor/requirements.txt 
+```
+
