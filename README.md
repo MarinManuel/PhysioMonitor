@@ -195,4 +195,20 @@ $ git clone https://github.com/MarinManuel/PhysioMonitor.git
 ```
 $ physio-venv/bin/pip install -r PhysioMonitor/requirements.txt 
 ```
+ 4. edit `PhysioMonitor.json`
+ 5. run PhysioMonitor
+```sh
+cd ~/PhysioMonitor
+~/physio-venv/bin/python ./PhysioMonitor.py -c ./PhysioMonitor.json
+```https://nidaqmx-python.readthedocs.io/en/latest/
 
+## Install NI acquisition card
+PhysioMonitor should work with any NI instrument card that works with the [`nidaqmx`](https://nidaqmx-python.readthedocs.io/en/latest/) python module.
+ 1. Install the NI linux driver. See [instruction at this location.](https://www.ni.com/en-us/support/documentation/supplemental/18/downloading-and-installing-ni-driver-software-on-linux-desktop.html)
+```
+sudo apt install ./ni-ubuntu2004firstlook-drivers-stream.deb 
+sudo apt update
+sudo apt install ni-daqmx
+sudo dkms autoinstall
+```
+ 2. reboot
