@@ -16,10 +16,10 @@
           "ai4"
         ],
         "input_modes": [
-          "DIFFERENTIAL",
-          "DIFFERENTIAL",
-          "DIFFERENTIAL",
-          "DIFFERENTIAL"
+          "RSE",
+          "RSE",
+          "RSE",
+          "RSE"
         ]
       }
     }
@@ -64,7 +64,7 @@
       "label": "Lung Pressure",
       "units": "cmH2O",
       "scale": 20,
-      "offset": -2.0,
+      "offset": 0.0,
       "autoscale": false,
       "ymin": 0,
       "ymax": 20,
@@ -127,8 +127,8 @@
       "line-width": 2,
       "label": "Temperature",
       "units": "°C",
-      "scale": 1.0,
-      "offset": 0.0,
+      "scale": 29.9,
+      "offset": 6.02,
       "autoscale": false,
       "ymin": 35,
       "ymax": 40,
