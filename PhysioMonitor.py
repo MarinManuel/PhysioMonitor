@@ -10,19 +10,19 @@ from misc import LogBox
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-c', "--config", help="path of the configuration file to use (required)", required=True)
-parser.add_argument('--log_level', help='level of information to log_box. '
+parser.add_argument('--log_level', help='level of information to log'
                                         'Can be one of [DEBUG,INFO,WARNING,ERROR,CRITICAL]. '
                                         'Default is WARNING',
                     default='WARNING')
-parser.add_argument('--logfile', help='file in which the log_box is written. '
-                                      'If absent or None, log_box is directed to stdout',
+parser.add_argument('--logfile', help='file in which the log is written. '
+                                      'If absent or None, log is directed to stdout',
                     default=None)
 args = parser.parse_args()
 
 # see https://docs.python.org/3/howto/logging.html#logging-to-a-file
 numeric_level = getattr(logging, args.log_level.upper(), None)
 if not isinstance(numeric_level, int):
-    raise ValueError(f'Invalid log_box level: {args.log_level}')
+    raise ValueError(f'Invalid log level: {args.log_level}')
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=numeric_level, filename=args.logfile, filemode='w')
 logging.getLogger('PyQt5').setLevel(logging.INFO)  # turn off DEBUG messages from PyQT5

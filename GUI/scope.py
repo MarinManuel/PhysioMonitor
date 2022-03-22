@@ -8,6 +8,7 @@ import pygame
 import pyqtgraph as pg
 from PyQt5.QtWidgets import QMenu, QAction, QFormLayout, QDoubleSpinBox, QWidget, QWidgetAction
 from pyqtgraph.Qt import QtCore, QtGui
+from PyQt5.QtCore import QEvent
 
 from sampling.buffers import RollingBuffer
 
@@ -478,6 +479,10 @@ class ScrollingScope(pg.PlotItem):
 
 
 class MenuLowHighSpinAction(QWidgetAction):
+    FocusEvents = QEvent.FocusIn, QEvent.Enter
+    ActivateEvents = QEvent.KeyPress, QEvent.Wheel
+    WatchedEvents = FocusEvents + ActivateEvents
+
     def __init__(self, parent=None, lowVal=0.0, highVal=0.0, units='',
                  labelHigh="High value",
                  labelLow="Low value",
@@ -502,10 +507,19 @@ class MenuLowHighSpinAction(QWidgetAction):
         # see https://stackoverflow.com/q/70691792/1356000
         w.setFocusPolicy(self.lowSpin.focusPolicy())
         w.setFocusProxy(self.lowSpin)
-        w.setFocusPolicy(self.highSpin.focusPolicy())
-        w.setFocusProxy(self.highSpin)
+        self.lowSpin.installEventFilter(self)
+        self.highSpin.installEventFilter(self)
         w.setLayout(layout)
         self.setDefaultWidget(w)
+
+    def eventFilter(self, obj, event):
+        # see https://stackoverflow.com/q/70691792/1356000
+        if obj in [self.lowSpin, self.highSpin] and event.type() in self.WatchedEvents:
+            if isinstance(self.parent(), QMenu):
+                self.parent().setActiveAction(self)
+            if event.type() in self.FocusEvents:
+                obj.setFocus()
+        return super().eventFilter(obj, event)
 
 
 class PagedScope(ScrollingScope):

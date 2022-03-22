@@ -964,7 +964,7 @@ class StartDialog(QDialog):
         self.config = config
         self.saveFolder = os.path.normpath(self.config['base-folder'])
         if self.config['create-sub-folder']:
-            self.saveFolder = os.path.join(self.saveFolder, datetime.date.today().isoformat())
+            self.saveFolder = os.path.join(self.saveFolder, datetime.date.today().strftime('%Y_%m_%d')) #FIXME: replace with configuration option
         if 'log-filename' not in self.config:
             self.log_path = os.path.join(self.saveFolder, 'LOGFILE.TXT')
         else:

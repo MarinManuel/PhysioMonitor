@@ -8,7 +8,7 @@ from sampling.sampling import Streamer
 terminalConfig = {"DEFAULT": nidaqmx.constants.TerminalConfiguration.DEFAULT,
                   "RSE": nidaqmx.constants.TerminalConfiguration.RSE,
                   "NRSE": nidaqmx.constants.TerminalConfiguration.NRSE,
-                  "DIFFERENTIAL": nidaqmx.constants.TerminalConfiguration.DIFFERENTIAL,
+                  "DIFFERENTIAL": nidaqmx.constants.TerminalConfiguration.BAL_DIFF,
                   "PSEUDODIFFERENTIAL": nidaqmx.constants.TerminalConfiguration.PSEUDODIFFERENTIAL}
 
 
@@ -18,9 +18,9 @@ class NIStreamer(Streamer):
         self.nbChannels = len(channels)
         self.task = nidaqmx.Task()
         for channel, mode in zip(channels, input_modes):
-            if mode.upper() not in nidaqmx.constants.TerminalConfiguration.__members__:
+            if mode.upper() not in terminalConfig.keys():
                 raise ValueError(f'Invalid input mode "{mode}". Must be one of '
-                                 f'{", ".join(nidaqmx.constants.TerminalConfiguration.__members__.keys())}')
+                                 f'{", ".join(terminalConfig.keys())}')
             self.task.ai_channels.add_ai_voltage_chan(physical_channel=f'{device}/{channel}',
                                                       terminal_config=terminalConfig[mode])
         self.task.timing.cfg_samp_clk_timing(sampling_rate,

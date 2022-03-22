@@ -1,12 +1,16 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QFrame, QMenu, QAction, QWidgetAction, QFormLayout, QSpinBox
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QEvent
 
 t = True
 v = 0
 
 
 class SpinAction(QWidgetAction):
+    FocusEvents = QEvent.FocusIn, QEvent.Enter
+    ActivateEvents = QEvent.KeyPress, QEvent.Wheel
+    WatchedEvents = FocusEvents + ActivateEvents
+
     def __init__(self, parent):
         super(SpinAction, self).__init__(parent)
         w = QWidget()
@@ -14,9 +18,18 @@ class SpinAction(QWidgetAction):
         self.spin = QSpinBox()
         w.setFocusPolicy(self.spin.focusPolicy())
         w.setFocusProxy(self.spin)
+        self.spin.installEventFilter(self)
         layout.addRow('value', self.spin)
         w.setLayout(layout)
         self.setDefaultWidget(w)
+
+    def eventFilter(self, obj, event):
+        if obj == self.spin and event.type() in self.WatchedEvents:
+            if isinstance(self.parent(), QMenu):
+                self.parent().setActiveAction(self)
+            if event.type() in self.FocusEvents:
+                self.spin.setFocus()
+        return super().eventFilter(obj, event)
 
 
 def _menu(position):

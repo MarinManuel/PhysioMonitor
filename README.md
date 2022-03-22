@@ -175,7 +175,7 @@ Fake pump, for testing purposes. "module-args" is empty
 Module for [Aladdin syringe pumps](https://www.wpiinc.com/var-2300-aladdin-single-syringe-pump).
 
 The arguments to supply in `"module-args"` are:
-- `adress`: unique network address to identify the pump to the computer. 
+- `address`: unique network address to identify the pump to the computer. 
   Network addresses are from 00 to 99. If the network consists of only 1 pump, set the pump’s address to 0.
   
 #### "modell11plus"
