@@ -127,8 +127,8 @@
       "line-width": 2,
       "label": "Temperature",
       "units": "°C",
-      "scale": 29.9,
-      "offset": 6.02,
+      "scale": 28.14,
+      "offset": 6.49,
       "autoscale": false,
       "ymin": 35,
       "ymax": 40,
@@ -154,8 +154,7 @@
     "serial-ports": [
       {
         "port": "/dev/ttyS0",
-        "baudrate": 9600
-
+        "baudrate": 19200
       }
     ],
     "pumps": [
