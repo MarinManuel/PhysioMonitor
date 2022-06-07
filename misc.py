@@ -59,17 +59,24 @@ class Drug(object):
     def pump(self, value):
         self._pump = value
 
-    def asList(self):
+    def as_list(self):
         return [self.name, self._dose, self._concentration, self._volume, self._pump]
 
-    def asStrList(self):
-        pump = 'Manual' if self.pump is None else f'Pump #{self.pump}'
-        return [self.name, f'{self._dose:.2f}', f'{self._concentration:.2f}', f'{self._volume:.0f}',
-                pump]
+    def as_strings(self):
+        pump = "Manual" if self.pump is None else f"Pump #{self.pump}"
+        return [
+            self.name,
+            f"{self._dose:.2f}",
+            f"{self._concentration:.2f}",
+            f"{self._volume:.0f}",
+            pump,
+        ]
 
     def __repr__(self):
-        return 'Drug(name={:s}, dose={:.2f} mg/kg, concentration={:.2f} mg/mL, ' \
-               'volume to injection={:.0f} μL, pump={})'.format(*self.asList())
+        return (
+            "Drug(name={:s}, dose={:.2f} mg/kg, concentration={:.2f} mg/mL, "
+            "volume to injection={:.0f} μL, pump={})".format(*self.as_list())
+        )
 
 
 class Sex(IntEnum):
@@ -78,11 +85,17 @@ class Sex(IntEnum):
     UNKNOWN = 3
 
 
-class Mouse(object):
-    __slots__ = '_weight', '_sex', '_genotype', '_dob', '_comments'
+class Subject(object):
+    __slots__ = "_weight", "_sex", "_genotype", "_dob", "_comments"
 
-    def __init__(self, weight: int = 0, sex: Sex = Sex.UNKNOWN, genotype="",
-                 dob: datetime = datetime.date.fromtimestamp(0), comments=""):
+    def __init__(
+        self,
+        weight: int = 0,
+        sex: Sex = Sex.UNKNOWN,
+        genotype="",
+        dob: datetime = datetime.date.fromtimestamp(0),
+        comments="",
+    ):
         self.weight = weight
         self.sex = sex
         self.genotype = genotype
@@ -130,20 +143,24 @@ class Mouse(object):
         self._comments = value
 
     def __repr__(self) -> str:
-        return 'Mouse(dob:{:s}, weight:{:.0f}g, sex:{:s}, genotype:{:s}, comments:{:s})'.format(
-            self.dob.isoformat(), self.weight, self.sex.__repr__(), self.genotype, self.comments
+        return "Subject(dob:{:s}, weight:{:.0f}g, sex:{:s}, genotype:{:s}, comments:{:s})".format(
+            self.dob.isoformat(),
+            self.weight,
+            self.sex.__repr__(),
+            self.genotype,
+            self.comments,
         )
 
 
 class LogBox(object):
     HEADER = """## Experiment Date: {expDate}
-=== Mouse Info ===
-Mouse: {mouseGenotype}
-Sex: {mouseSex}
-DoB: {mouseDoB} ({mouseAge} days-old)
-Weight: {mouseWeight} g
+=== Subject Info ===
+Subject: {subjectGenotype}
+Sex: {subjectSex}
+DoB: {subjectDoB} ({subjectAge} days-old)
+Weight: {subjectWeight} g
 Comments:
-{mouseComments}
+{subjectComments}
 
 === Drugs ===
 {drugs}
@@ -151,23 +168,33 @@ Comments:
 ## start log
 
 """
-    RE_MOUSE_INFO = re.compile(r'''=== Mouse Info ===''')
-    RE_MOUSE_DATA = re.compile(r'''^Mouse: (?P<genotype>.*)$
+    RE_SUBJECT_INFO = re.compile(r"""=== Subject Info ===""")
+    RE_SUBJECT_DATA = re.compile(
+        r"""^Subject: (?P<genotype>.*)$
 ^Sex: (?P<sex>.*)$
-^DoB: (?P<dob>[0-9-]{10}) .*$
+^DoB: (?P<dob>[\d-]{10}) .*$
 ^Weight: (?P<weight>\d+) g$
 ^Comments:$
 ^(?P<comments>.*)
 
-^===''', re.MULTILINE | re.DOTALL)
+^===""",
+        re.MULTILINE | re.DOTALL,
+    )
     RE_DRUG_DATA = re.compile(
-        r"^\| (?P<name>.*) *\| *(?P<dose>[0-9.]+) \| *(?P<concentration>[0-9.]+) \|"
-        r" *(?P<volume>[0-9.]+) \| (?P<pump>.*) *\|$",
-        re.MULTILINE)
-    RE_PUMP = re.compile('Pump #([0-9]+)')
-    DRUGS_HEADER = ['Drug name', 'dose (mg/kg)', 'concentration (mg/mL)', 'Volume to inject (μL)', 'Pump or Manual']
-    SEX = ['Male', 'Female', 'Unknown']
-    SEP = '\t|\t'
+        r"^\| (?P<name>.*) *\| *(?P<dose>[\d.]+) \| *(?P<concentration>[\d.]+) \|"
+        r" *(?P<volume>[\d.]+) \| (?P<pump>.*) *\|$",
+        re.MULTILINE,
+    )
+    RE_PUMP = re.compile(r"Pump #(\d+)")
+    DRUGS_HEADER = [
+        "Drug name",
+        "dose (mg/kg)",
+        "concentration (mg/mL)",
+        "Volume to inject (μL)",
+        "Pump or Manual",
+    ]
+    SEX = ["Male", "Female", "Unknown"]
+    SEP = "\t|\t"
 
     def __init__(self, path, widget: QPlainTextEdit, nb_measurements):
         self._path = path
@@ -179,73 +206,92 @@ Comments:
     def path(self):
         return self._path
 
-    def getHeader(self, mouse: Mouse, drugList: typing.List[Drug]):
-        mouseAge = (datetime.date.today() - mouse.dob).days
+    def get_header(self, subject: Subject, drug_list: typing.List[Drug]):
+        subject_age = (datetime.date.today() - subject.dob).days
         # use tabulate module to get a nicely formatted drug list
-        drugs = tabulate([a.asStrList() for a in drugList], headers=self.DRUGS_HEADER,
-                         tablefmt="github", floatfmt=('', '.2f', '.2f', '.0f'))
-        return self.HEADER.format(expDate=datetime.date.today().isoformat(),
-                                  mouseGenotype=mouse.genotype,
-                                  mouseSex=self.SEX[mouse.sex - 1],
-                                  mouseDoB=mouse.dob.isoformat(),
-                                  mouseAge=mouseAge,
-                                  mouseWeight=mouse.weight,
-                                  mouseComments=mouse.comments,
-                                  drugs=drugs)
+        drugs = tabulate(
+            [a.as_strings() for a in drug_list],
+            headers=self.DRUGS_HEADER,
+            tablefmt="github",
+            floatfmt=("", ".2f", ".2f", ".0f"),
+        )
+        return self.HEADER.format(
+            expDate=datetime.date.today().isoformat(),
+            subjectGenotype=subject.genotype,
+            subjectSex=self.SEX[subject.sex - 1],
+            subjectDoB=subject.dob.isoformat(),
+            subjectAge=subject_age,
+            subjectWeight=subject.weight,
+            subjectComments=subject.comments,
+            drugs=drugs,
+        )
 
     def append(self, text):
-        text += '\n' if text[-1] != '\n' else ''  # ensure line ends with newline
+        text += "\n" if text[-1] != "\n" else ""  # ensure line ends with newline
         self.content += text
         os.makedirs(os.path.dirname(self._path), exist_ok=True)
-        with open(self._path, 'a+', encoding='utf-8') as f:
+        with open(self._path, "a+", encoding="utf-8") as f:
             f.write(text)
         if self.widget is not None:
             self.widget.appendPlainText(text[:-1])  # dont include \n
 
     @staticmethod
     def parse(path):
-        with open(path, 'r', encoding='utf-8') as f:
+        with open(path, "r", encoding="utf-8") as f:
             content = f.read()
-        mouse = None
+        subject = None
         drugs = []
 
-        mouse_matches = list(LogBox.RE_MOUSE_INFO.finditer(content))
-        if len(mouse_matches) > 0:
-            mouse_match = mouse_matches[-1]  # keep the last match in case there are several
-            mouse_data = LogBox.RE_MOUSE_DATA.match(content[mouse_match.end() + 1:])
-            if mouse_data is not None:
-                mouseWeight = int(mouse_data.group('weight'))
-                mouseSex = mouse_data.group('sex')
-                if mouseSex == 'Male':
-                    mouseSex = Sex.MALE
-                elif mouseSex == 'Female':
-                    mouseSex = Sex.FEMALE
+        subject_matches = list(LogBox.RE_SUBJECT_INFO.finditer(content))
+        if len(subject_matches) > 0:
+            subject_match = subject_matches[
+                -1
+            ]  # keep the last match in case there are several
+            subject_data = LogBox.RE_SUBJECT_DATA.match(
+                content[subject_match.end() + 1 :]
+            )
+            if subject_data is not None:
+                subject_weight = int(subject_data.group("weight"))
+                subject_sex = subject_data.group("sex")
+                if subject_sex == "Male":
+                    subject_sex = Sex.MALE
+                elif subject_sex == "Female":
+                    subject_sex = Sex.FEMALE
                 else:
-                    mouseSex = Sex.UNKNOWN
-                mouseGenotype = mouse_data.group('genotype')
-                mouseDoB = datetime.date.fromisoformat(mouse_data.group('dob'))
-                mouseComments = mouse_data.group('comments')
-                mouse = Mouse(weight=mouseWeight, sex=mouseSex, genotype=mouseGenotype,
-                              dob=mouseDoB, comments=mouseComments)
+                    subject_sex = Sex.UNKNOWN
+                subject_genotype = subject_data.group("genotype")
+                subject_dob = datetime.date.fromisoformat(subject_data.group("dob"))
+                subject_comments = subject_data.group("comments")
+                subject = Subject(
+                    weight=subject_weight,
+                    sex=subject_sex,
+                    genotype=subject_genotype,
+                    dob=subject_dob,
+                    comments=subject_comments,
+                )
 
-                drug_matches = LogBox.RE_DRUG_DATA.finditer(content[mouse_match.start():])
+                drug_matches = LogBox.RE_DRUG_DATA.finditer(
+                    content[subject_match.start() :]
+                )
                 for drug_match in drug_matches:
                     pump = None
-                    match = LogBox.RE_PUMP.match(drug_match.group('pump'))
+                    match = LogBox.RE_PUMP.match(drug_match.group("pump"))
                     if match is not None:
                         pump = int(match.group(1))
-                    drug = Drug(name=drug_match.group('name').strip(),
-                                dose=float(drug_match.group('dose')),
-                                concentration=float(drug_match.group('concentration')),
-                                volume=int(drug_match.group('volume')),
-                                pump=pump)
+                    drug = Drug(
+                        name=drug_match.group("name").strip(),
+                        dose=float(drug_match.group("dose")),
+                        concentration=float(drug_match.group("concentration")),
+                        volume=int(drug_match.group("volume")),
+                        pump=pump,
+                    )
                     drugs.append(drug)
-        return mouse, drugs
+        return subject, drugs
 
-    def writeToLog(self, measurements: typing.List, note=''):
+    def write_to_log(self, measurements: typing.List, note=""):
         # to get consistent results, make sure that `measurement` is same size a nb of plots
         m = len(measurements)
-        measurements += [''] * (self.nbMeasurements - m)
-        currTime = datetime.datetime.now().strftime("%H:%M:%S")
-        text = self.SEP.join([currTime] + measurements[:self.nbMeasurements] + [note])
+        measurements += [""] * (self.nbMeasurements - m)
+        curr_time = datetime.datetime.now().strftime("%H:%M:%S")
+        text = self.SEP.join([curr_time] + measurements[: self.nbMeasurements] + [note])
         self.append(text)

@@ -159,6 +159,8 @@ list of serial ports to open. Each of the element contains parameters that can b
 Each element of the list must contain the following items:
 ```
 {
+  "display-name": str,
+    Name of the pump, displayed in various places in the GUI
   "module-name": str,
     Name of the module to use. One of "demo", "aladdin" or "model11plus".
   "serial-port": int,

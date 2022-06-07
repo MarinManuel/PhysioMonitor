@@ -31,21 +31,29 @@ class RollingBuffer(object):
         # let's make sure items has the right dimensions
         shape = items.shape
         if len(shape) == 1:  # got a vector
-            if self._nLines == 1:  # but that's OK since we have a 1 dimensional RollingBuffer
+            if (
+                self._nLines == 1
+            ):  # but that's OK since we have a 1 dimensional RollingBuffer
                 items = np.reshape(items, (1, len(items)))
             else:
-                raise ValueError("ERROR: the items to be added to the RollingBuffer have the wrong number of "
-                                 "dimensions %s", self._buffer.shape)
+                raise ValueError(
+                    "ERROR: the items to be added to the RollingBuffer have the wrong number of "
+                    "dimensions %s",
+                    self._buffer.shape,
+                )
         else:  # got a matrix
             nLinesItems = items.shape[0]
             if nLinesItems != self._nLines:
-                raise ValueError("ERROR: the items to be added to the RollingBuffer have the wrong number of "
-                                 "dimensions %s", self._buffer.shape)
+                raise ValueError(
+                    "ERROR: the items to be added to the RollingBuffer have the wrong number of "
+                    "dimensions %s",
+                    self._buffer.shape,
+                )
 
         # do the thing
         _, n = np.shape(items)
         self._buffer = np.roll(self._buffer, -1 * n, 1)
-        self._buffer[:, -1 * n:] = items[:, -1 * self._size:]
+        self._buffer[:, -1 * n :] = items[:, -1 * self._size :]
 
     def __repr__(self):
         return self._buffer.__repr__()

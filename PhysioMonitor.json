@@ -1,5 +1,5 @@
 {
-  "base-folder": "/home/RECORDS/",
+  "base-folder": "/home/RECORDINGS/",
   "create-sub-folder": true,
   "log-filename": "SurgicalLog.txt",
   "measurements-output-period-min": 5,
@@ -167,6 +167,7 @@
     ],
     "pumps": [
       {
+        "display-name": "Pump 1",
         "module-name": "aladdin",
         "serial-port": 0,
         "module-args": {
@@ -174,6 +175,7 @@
         }
       },
       {
+        "display-name": "Pump 2",
         "module-name": "aladdin",
         "serial-port": 0,
         "module-args": {

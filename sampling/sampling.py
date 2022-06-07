@@ -36,6 +36,7 @@ class Streamer(object):
     Should initialize the sampling system, but not start the sampling itself
     Data is stored in an Numpy array of shape (number of channels, N)
     """
+
     _empty = np.empty(shape=(0, 0))
 
     def start(self):

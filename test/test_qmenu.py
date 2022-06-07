@@ -1,5 +1,14 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QFrame, QMenu, QAction, QWidgetAction, QFormLayout, QSpinBox
+from PyQt5.QtWidgets import (
+    QApplication,
+    QWidget,
+    QFrame,
+    QMenu,
+    QAction,
+    QWidgetAction,
+    QFormLayout,
+    QSpinBox,
+)
 from PyQt5.QtCore import Qt
 
 t = True
@@ -14,7 +23,7 @@ class SpinAction(QWidgetAction):
         self.spin = QSpinBox()
         w.setFocusPolicy(self.spin.focusPolicy())
         w.setFocusProxy(self.spin)
-        layout.addRow('value', self.spin)
+        layout.addRow("value", self.spin)
         w.setLayout(layout)
         self.setDefaultWidget(w)
 
