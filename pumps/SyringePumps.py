@@ -26,8 +26,9 @@ class SyringePump(object):
         INFUSING = 1
         WITHDRAWING = 2
 
-    minVal = 0.001
-    maxVal = 9999
+    min_val = 0.001
+    max_val = 9999
+    _display_name = ""
 
     def __init__(self):
         """
@@ -148,6 +149,14 @@ class SyringePump(object):
         """
         pass
 
+    @property
+    def display_name(self):
+        return self._display_name
+
+    @display_name.setter
+    def display_name(self, value: str):
+        self._display_name = value
+
 
 class SyringePumpException(Exception):
     pass
@@ -187,7 +196,9 @@ class UnforeseenException(SyringePumpException):
 
 class DummyPump(SyringePump):
     # noinspection PyMissingConstructor
-    def __init__(self, serial_port: serial.Serial, diameter=10, rate=20, units=0):
+    def __init__(
+        self, serial_port: serial.Serial, diameter=10, rate=20, units=0, display_name=""
+    ):
         self.serial = serial_port
         self.currDir = self.STATE.INFUSING
         self.currState = self.STATE.STOPPED
@@ -195,6 +206,7 @@ class DummyPump(SyringePump):
         self.currRate = rate
         self.currUnits = units
         self.targetVolume = 0
+        self.display_name = display_name
 
     def __del__(self):
         pass
@@ -300,13 +312,14 @@ class Model11plusPump(SyringePump):
     __CMD_QUIT_REMOTE = "KEY\r"
 
     # noinspection PyMissingConstructor
-    def __init__(self, serial_port):
+    def __init__(self, serial_port, display_name=""):
         self.serial = serial_port
         if serial_port is not None:
             self.serial.flush()
             self.serial.flushInput()
             self.serial.flushOutput()
         self.currUnits = 0
+        self.display_name = display_name
 
     def __del__(self):
         if self.serial is not None:
@@ -588,10 +601,11 @@ class AladdinPump(SyringePump):
         return "{:05.3f}".format(val)[:5]
 
     # noinspection PyMissingConstructor
-    def __init__(self, serial_port, address=0):
+    def __init__(self, serial_port, address=0, display_name=""):
         self.address = address
         self.ansParser = re.compile(self.__ANS_PATTERN)
         self.serial = serial_port
+        self.display_name = display_name
         if self.serial is not None:
             self.serial.flush()
             self.serial.flushInput()
@@ -622,10 +636,8 @@ class AladdinPump(SyringePump):
         self.serial.flush()
         self.serial.flushInput()
         self.serial.flushOutput()
-        logger.debug(
-            '>>sending command "%02d%s"...'
-            % (self.address, command.replace("\r", "\\r"))
-        )
+        command = f"{self.address:02d}{command}"
+        logger.debug('>>sending command "%s"...' % (command.replace("\r", "\\r")))
         self.serial.write(command.encode())
         send_time = time.time()
         ans = ""
