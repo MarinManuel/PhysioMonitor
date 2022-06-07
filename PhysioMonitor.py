@@ -6,16 +6,15 @@ import sys
 from datetime import datetime
 from PyQt5.QtWidgets import QApplication
 from GUI.GUI import PhysioMonitorMainScreen, StartDialog
-from misc import LogBox
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-c', "--config", help="path of the configuration file to use (required)", required=True)
-parser.add_argument('--log_level', help='level of information to log_box. '
+parser.add_argument('--log_level', help='level of information to log. '
                                         'Can be one of [DEBUG,INFO,WARNING,ERROR,CRITICAL]. '
                                         'Default is WARNING',
                     default='WARNING')
-parser.add_argument('--logfile', help='file in which the log_box is written. '
-                                      'If absent or None, log_box is directed to stdout',
+parser.add_argument('--logfile', help='file in which the log is written. '
+                                      'If absent or None, log is directed to stdout',
                     default=None)
 args = parser.parse_args()
 
