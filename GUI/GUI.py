@@ -856,7 +856,7 @@ class PhysioMonitorMainScreen(QMainWindow):
     otherDrugButton: QPushButton
     addNoteButton: QPushButton
 
-    def __init__(self, config: dict):
+    def __init__(self, config: dict, pump_serial_ports=None, pumps=None):
         super().__init__()
         # Load the UI Page
         uic.loadUi("./GUI/MainScreen.ui", self)
@@ -937,61 +937,11 @@ class PhysioMonitorMainScreen(QMainWindow):
         ##
         # Serial port(s) for syringe pump
         ##
-        self.serialPorts = []
-        for serial_conf in self.config["syringe-pump"]["serial-ports"]:
-            try:
-                ser = serial.Serial(**serial_conf)
-            except serial.SerialException:
-                ser = None
-            if ser is None:
-                # noinspection PyTypeChecker
-                QMessageBox.warning(
-                    None,
-                    "Serial port error",
-                    'Cannot open serial port "{:s}"!\n'
-                    "Serial connection will not be available".format(
-                        serial_conf["port"]
-                    ),
-                )
-            self.serialPorts.append(ser)
-
+        self.serialPorts = [] if pump_serial_ports is None else pump_serial_ports
         ##
         # Syringe pump(s)
         ##
-        self.pumps = []
-        for pump_conf in self.config["syringe-pump"]["pumps"]:
-            model = pump_conf["module-name"]
-            if model not in AVAIL_PUMP_MODULES:
-                raise ValueError(
-                    f'Invalid module "{model}". Must be one of {", ".join(AVAIL_PUMP_MODULES.keys())}'
-                )
-            model = AVAIL_PUMP_MODULES[model]
-            pump = None
-            # sometimes, it takes a couple of tries for the pump to answer,
-            # so we'll try in a loop and test if it was successful
-            success = False
-            while not success:
-                for _ in range(3):
-                    try:
-                        pump = model(
-                            serial_port=self.serialPorts[pump_conf["serial-port"]],
-                            **pump_conf["module-args"],
-                        )
-                        pump.is_running()  # check that pump is working, should raise Exception if not
-                        success = True
-                        break
-                    except SyringePumpException:
-                        pump = None
-                if not success:
-                    # noinspection PyTypeChecker
-                    ans = QMessageBox.question(
-                        None,
-                        "Pump not responding",
-                        f"Cannot communicate with the pump {model}, maybe it is off?\nRetry?",
-                    )
-                    if ans == QMessageBox.No:
-                        success = True
-            self.pumps.append(pump)
+        self.pumps = [] if pumps is None else pumps
 
         for i, drug in enumerate(config["drug-list"]):
             if drug.pump is not None and self.pumps[drug.pump - 1] is not None:
@@ -1107,6 +1057,7 @@ class StartDialog(QDialog):
         super().__init__()
         uic.loadUi("./GUI/StartScreen.ui", self)
         self.setWindowIcon(QIcon("../media/icon.png"))
+        self.config = config
 
         self.buttonBox.button(QDialogButtonBox.Ok).setIcon(
             QApplication.style().standardIcon(QStyle.SP_DialogOkButton)
@@ -1114,6 +1065,66 @@ class StartDialog(QDialog):
         self.buttonBox.button(QDialogButtonBox.Cancel).setIcon(
             QApplication.style().standardIcon(QStyle.SP_DialogCancelButton)
         )
+
+        ##
+        # Serial port(s) for syringe pump
+        ##
+        self.serialPorts = []
+        for serial_conf in self.config["syringe-pump"]["serial-ports"]:
+            try:
+                ser = serial.Serial(**serial_conf)
+            except serial.SerialException:
+                ser = None
+            if ser is None:
+                # noinspection PyTypeChecker
+                QMessageBox.warning(
+                    None,
+                    "Serial port error",
+                    'Cannot open serial port "{:s}"!\n'
+                    "Serial connection will not be available".format(
+                        serial_conf["port"]
+                    ),
+                )
+            self.serialPorts.append(ser)
+
+        ##
+        # Syringe pump(s)
+        ##
+        self.pumps = []
+        for pump_conf in self.config["syringe-pump"]["pumps"]:
+            model = pump_conf["module-name"]
+            if model not in AVAIL_PUMP_MODULES:
+                raise ValueError(
+                    f'Invalid module "{model}". Must be one of {", ".join(AVAIL_PUMP_MODULES.keys())}'
+                )
+            model = AVAIL_PUMP_MODULES[model]
+            pump = None
+            # sometimes, it takes a couple of tries for the pump to answer,
+            # so we'll try in a loop and test if it was successful
+            success = False
+            while not success:
+                for _ in range(3):
+                    try:
+                        pump = model(
+                            display_name=pump_conf["display-name"],
+                            serial_port=self.serialPorts[pump_conf["serial-port"]],
+                            **pump_conf["module-args"],
+                        )
+                        pump.is_running()  # check that pump is working, should raise Exception if not
+                        success = True
+                        break
+                    except SyringePumpException:
+                        pump = None
+                if not success:
+                    # noinspection PyTypeChecker
+                    ans = QMessageBox.question(
+                        None,
+                        "Pump not responding",
+                        f"Cannot communicate with the pump {model}, maybe it is off?\nRetry?",
+                    )
+                    if ans == QMessageBox.No:
+                        success = True
+            self.pumps.append(pump)
 
         # load previous values to pre-populate dialog
         try:
@@ -1139,7 +1150,7 @@ class StartDialog(QDialog):
 
         self.subject = Subject()
         self.drugList = prev_values["drugs"]
-        self.config = config
+
         self.saveFolder = os.path.normpath(self.config["base-folder"])
         if self.config["create-sub-folder"]:
             self.saveFolder = os.path.join(

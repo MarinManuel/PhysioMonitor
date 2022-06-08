@@ -48,7 +48,9 @@ app = QApplication(sys.argv)
 startDlg = StartDialog(config=config)
 if startDlg.exec():
     config = startDlg.config
-    physio_monitor = PhysioMonitorMainScreen(config)
+    physio_monitor = PhysioMonitorMainScreen(
+        config, pump_serial_ports=startDlg.serialPorts, pumps=startDlg.pumps
+    )
     if not startDlg.isResumed:
         physio_monitor.logBox.append(
             physio_monitor.logBox.get_header(
