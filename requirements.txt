@@ -1,0 +1,15 @@
+nidaqmx
+numpy
+pandas
+pygame
+PyQt5
+PyQt5-sip
+PyQt5-stubs
+pyqtgraph
+pyserial
+python-dateutil
+pytz
+PyYAML
+pyserial
+tabulate
+uldaq

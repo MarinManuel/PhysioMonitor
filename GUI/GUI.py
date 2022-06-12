@@ -40,13 +40,15 @@ from PyQt5.QtWidgets import (
     QTableView,
     QMessageBox,
     QMainWindow,
+    QProgressBar,
+    QFrame,
 )
 
 from GUI.Models import DrugTableModel
 from GUI.scope import ScopeLayoutWidget, PagedScope, ScrollingScope
 from misc import Drug, Sex, Subject, LogBox
 from pumps import SyringePumps
-from pumps.SyringePumps import SyringePumpException, AVAIL_PUMP_MODULES
+from pumps.SyringePumps import SyringePumpException, AVAIL_PUMP_MODULES, SyringePump
 
 # noinspection SpellCheckingInspection
 from sampling import AVAIL_ACQ_MODULES
@@ -1041,6 +1043,13 @@ class PhysioMonitorMainScreen(QMainWindow):
         event.accept()
 
 
+def clear_layout(layout):
+    while layout.count():
+        child = layout.takeAt(0)
+        if child.widget():
+            child.widget().deleteLater()
+
+
 class StartDialog(QDialog):
     expInvestigatorComboBox: QComboBox
     subjectDoBBox: QDateEdit
@@ -1052,6 +1061,9 @@ class StartDialog(QDialog):
     editDrugButton: QPushButton
     addDrugButton: QPushButton
     delDrugButton: QPushButton
+    buttonBox: QDialogButtonBox
+    pumpComboBox: QComboBox
+    pumpPanelFrame: QFrame
 
     def __init__(self, config):
         super().__init__()
@@ -1218,6 +1230,23 @@ class StartDialog(QDialog):
             )
         self.drugTable.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
 
+        # PUMPS TAB
+        if len([p for p in self.pumps if p is not None]) > 0:
+            self.pumpComboBox.clear()
+            self.pumpComboBox.addItems(
+                [p.display_name for p in self.pumps if p is not None]
+            )
+            self.pumpComboBox.currentIndexChanged.connect(self.on_pump_combo_changed)
+            self.on_pump_combo_changed(0)  # populate with first item in list
+
+    def on_pump_combo_changed(self, index):
+        for idx, p in enumerate([q for q in self.pumps if q is not None]):
+            self.pumpComboBox.setItemText(idx, p.display_name)
+        clear_layout(self.pumpPanelFrame.layout())
+        pumps = [p for p in self.pumps if p is not None]
+        panel = SyringePumpPanel(pump=pumps[index])
+        self.pumpPanelFrame.layout().addWidget(panel)
+
     def add_entry(self):
         name, dose, concentration, volume, pump, ok = DrugEditDialog.get_drug_data()
         if ok:
@@ -1302,3 +1331,117 @@ class StartDialog(QDialog):
             json.dump(out, f)
 
         super().accept()
+
+
+class SyringePumpPanel(QWidget):
+    diameterSpinBox: QDoubleSpinBox
+    bolusRateSpinBox: QDoubleSpinBox
+    bolusRateComboBox: QComboBox
+    doPrimeButton: QPushButton
+    primeFlowRateComboBox: QComboBox
+    primeFlowRateSpinBox: QDoubleSpinBox
+    primeProgressBar: QProgressBar
+    primeTargetVolSpinBox: QDoubleSpinBox
+
+    def __init__(self, pump: SyringePump):
+        super().__init__()
+        uic.loadUi("./GUI/SyringePumpPanel.ui", self)
+        self.pump = pump
+        self._waitThread = threading.Thread()
+        self.refresh()
+        self.doPrimeButton.clicked.connect(self.on_prime_toggled)
+        self.diameterSpinBox.editingFinished.connect(self.update_pump)
+        self.bolusRateSpinBox.editingFinished.connect(self.update_pump)
+        self.bolusRateComboBox.currentIndexChanged.connect(self.update_pump)
+        self.primeFlowRateComboBox.currentIndexChanged.connect(self.update_pump)
+        self.primeFlowRateSpinBox.editingFinished.connect(self.update_pump)
+        self.primeTargetVolSpinBox.editingFinished.connect(self.update_pump)
+
+    def refresh(self):
+        possible_units = self.pump.get_possible_units()
+        self.bolusRateComboBox.clear()
+        self.bolusRateComboBox.addItems(possible_units)
+        self.primeFlowRateComboBox.clear()
+        self.primeFlowRateComboBox.addItems(possible_units)
+
+        self.diameterSpinBox.setValue(self.pump.get_diameter())
+        self.bolusRateSpinBox.setValue(self.pump.bolus_rate)
+        self.bolusRateComboBox.setCurrentIndex(self.pump.bolus_rate_units)
+        self.primeTargetVolSpinBox.setValue(self.pump.get_target_volume())
+        self.primeFlowRateSpinBox.setValue(self.pump.get_rate())
+        self.primeFlowRateComboBox.setCurrentIndex(self.pump.get_units())
+
+    # noinspection PyUnusedLocal
+    def update_pump(self, event=None):
+        # we use this function with editingFinished, which sends no arguments
+        # and with currentIndexChanged, which sends an argument
+        self.pump.bolus_rate = self.bolusRateSpinBox.value()
+        self.pump.bolus_rate_units = self.bolusRateComboBox.currentIndex()
+        self.pump.set_rate(
+            self.primeFlowRateSpinBox.value(), self.primeFlowRateComboBox.currentIndex()
+        )
+        self.pump.set_target_volume(self.primeTargetVolSpinBox.value())
+
+    # noinspection PyUnusedLocal
+    def on_prime_toggled(self, clicked):
+        if clicked:
+            try:
+                if self.pump.is_running():
+                    self.pump.stop()
+                    # wait for thread to finish
+                    while self._waitThread.is_alive():
+                        time.sleep(0.1)
+                self.pump.set_direction(SyringePump.STATE.INFUSING)
+                self.pump.clear_accumulated_volume()
+                self.pump.set_rate(
+                    self.primeFlowRateSpinBox.value(),
+                    self.primeFlowRateComboBox.currentIndex(),
+                )
+                self.pump.set_target_volume(self.primeTargetVolSpinBox.value())
+                self.pump.start()
+            except SyringePumps.ValueOORException:
+                # noinspection PyTypeChecker
+                QMessageBox.warning(
+                    None, "Value out of range", "Cannot inject, value out of range"
+                )
+                self.primeFlowRateSpinBox.setFocus()
+
+            if self.primeTargetVolSpinBox.value() > 0:
+                # if target vol is zero, continuous perfusion, so we don't run the
+                # progress bar and don't wait for the perfusion to end.
+                self.primeProgressBar.setValue(0)
+                self._waitThread = threading.Thread(
+                    target=self.wait_for_end_of_injection,
+                    args=(),
+                )
+                self._waitThread.start()
+        else:
+            if self.pump.is_running():
+                self.pump.stop()
+                # wait for thread to finish
+                while self._waitThread.is_alive():
+                    time.sleep(0.1)
+            self.enable_prime_controls(True)
+
+    def wait_for_end_of_injection(
+        self,
+    ):
+        while self.pump.is_running():
+            self.primeProgressBar.setValue(
+                round(
+                    100
+                    * self.pump.get_accumulated_volume()
+                    / self.primeTargetVolSpinBox.value()
+                )
+            )
+            time.sleep(0.1)
+
+        # return to zero when finished
+        self.primeProgressBar.setValue(0)
+        self.doPrimeButton.setChecked(False)
+        self.enable_prime_controls(True)
+
+    def enable_prime_controls(self, enabled: bool):
+        self.primeTargetVolSpinBox.setEnabled(enabled)
+        self.primeFlowRateSpinBox.setEnabled(enabled)
+        self.primeFlowRateComboBox.setEnabled(enabled)
