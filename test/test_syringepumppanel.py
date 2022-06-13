@@ -4,7 +4,7 @@ import sys
 import serial
 from PyQt5.QtWidgets import QApplication, QFrame
 
-from GUI.GUI import SyringePumpPanel
+from GUI.GUI import PumpConfigPanel
 from pumps.SyringePumps import DummyPump, AladdinPump, SyringePumpException
 
 logger = logging.getLogger(__name__)
@@ -23,6 +23,6 @@ for _ in range(3):
         a = None
 
 
-s = SyringePumpPanel(pump=a)
+s = PumpConfigPanel(pump=a)
 s.show()
 sys.exit(app.exec_())

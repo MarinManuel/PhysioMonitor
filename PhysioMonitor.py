@@ -11,8 +11,13 @@ parser = argparse.ArgumentParser()
 parser.add_argument(
     "-c",
     "--config",
-    help="path of the configuration file to use (required)",
-    required=True,
+    help="path of the configuration file to use. Defaults to './PhysioMonitor.json'",
+    default="./PhysioMonitor.json",
+)
+parser.add_argument(
+    "--prev-values-file",
+    help="path to the file containing the previous values to reload. Defaults to './prev_vals.json'",
+    default="./prev_vals.json",
 )
 parser.add_argument(
     "--log-level",
@@ -45,7 +50,7 @@ except (FileNotFoundError, json.JSONDecodeError):
     parser.error("filed passed to --config is not a valid configuration file")
 
 app = QApplication(sys.argv)
-startDlg = StartDialog(config=config)
+startDlg = StartDialog(config=config, prev_values_file=args.prev_values_file)
 if startDlg.exec():
     config = startDlg.config
     physio_monitor = PhysioMonitorMainScreen(

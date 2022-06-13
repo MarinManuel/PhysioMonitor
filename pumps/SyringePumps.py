@@ -7,9 +7,9 @@ from PyQt5.QtCore import QTimer
 
 logger = logging.getLogger(__name__)
 
-# bolus injection done at 1 mL/min
-BOLUS_RATE = 1.0
-BOLUS_RATE_UNITS: int = 1
+# default values for bolus injections
+DEFAULT_BOLUS_RATE = 1.0
+DEFAULT_BOLUS_RATE_UNITS: int = 1
 
 
 class SyringePump(object):
@@ -28,8 +28,8 @@ class SyringePump(object):
     min_val = 0.001
     max_val = 9999
     _display_name = ""
-    _bolus_rate = 0
-    _bolus_rate_units = 0
+    _bolus_rate = DEFAULT_BOLUS_RATE
+    _bolus_rate_units = DEFAULT_BOLUS_RATE_UNITS
 
     def __init__(self):
         """

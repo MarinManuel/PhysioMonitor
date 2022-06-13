@@ -41,12 +41,10 @@ class DrugTableModel(QAbstractTableModel):
     UNITS = [None, "mg/kg", "mg/mL", "μL", None]
     FORMATS = ["{:s}", "{:.2f}", "{:.2f}", "{:d}", "{}"]
 
-    def __init__(self, data=None):
+    def __init__(self, data=None, pumps=None):
         QAbstractTableModel.__init__(self)
-        if data is None:
-            self._data = []
-        else:
-            self._data = data
+        self._data = [] if data is None else data
+        self._pumps = [] if pumps is None else pumps
         self.NCols = len(self.HEADER)
 
     def rowCount(self, parent=QModelIndex()):
@@ -65,7 +63,7 @@ class DrugTableModel(QAbstractTableModel):
                 if value is None:
                     return "Manual"
                 else:
-                    return "Pump #{}".format(value)
+                    return self._pumps[value].display_name
             value = self.FORMATS[column].format(value)
             units = self.UNITS[column]
             if units is not None and len(units) > 0:

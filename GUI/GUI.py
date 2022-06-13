@@ -53,9 +53,6 @@ from pumps.SyringePumps import SyringePumpException, AVAIL_PUMP_MODULES, Syringe
 # noinspection SpellCheckingInspection
 from sampling import AVAIL_ACQ_MODULES
 
-# noinspection SpellCheckingInspection
-PREVIOUS_VALUES_FILE = "prev_vals.json"
-
 # if it hasn't been already, initialize the sound mixer
 if pygame.mixer.get_init() is None:
     pygame.mixer.pre_init(44100, -16, 2, 2048)
@@ -306,36 +303,45 @@ class DrugEditDialog(QDialog):
     drugConcentrationSpinBox: QDoubleSpinBox
     drugVolumeSpinBox: QSpinBox
     usePumpCheckBox: QCheckBox
-    pumpIdSpinBox: QSpinBox
+    pumpComboBox: QComboBox
 
-    def __init__(self, name="", dose=0.0, concentration=0.0, volume=0, pump=None):
+    def __init__(
+        self, name="", dose=0.0, concentration=0.0, volume=0, pump_id=None, pumps=None
+    ):
         super().__init__()
+        pumps = [] if pumps is None else pumps
         uic.loadUi("./GUI/DrugEditDialog.ui", self)
         self.drugNameLineEdit.setText(name)
         self.drugDoseSpinBox.setValue(float(dose))
         self.drugConcentrationSpinBox.setValue(float(concentration))
         self.drugVolumeSpinBox.setValue(int(volume))
         self.usePumpCheckBox.toggled.connect(self.use_pump_toggled)
-        if pump is None:
+        self.pumpComboBox.clear()
+        self.pumpComboBox.addItems(pumps)
+        if pump_id is None or len(pumps) == 0:
             self.usePumpCheckBox.setChecked(False)
         else:
             self.usePumpCheckBox.setChecked(True)
-            self.pumpIdSpinBox.setValue(pump)
+            self.pumpComboBox.setCurrentIndex(pump_id)
 
     def use_pump_toggled(self, state):
-        self.pumpIdSpinBox.setEnabled(state)
+        self.pumpComboBox.setEnabled(state)
 
     @staticmethod
-    def get_drug_data(name="", dose=0.0, concentration=0.0, volume=0, pump=None):
-        dlg = DrugEditDialog(name, dose, concentration, volume, pump)
-
+    def get_drug_data(
+        name="", dose=0.0, concentration=0.0, volume=0, pump_id=None, pumps=None
+    ):
+        dlg = DrugEditDialog(name, dose, concentration, volume, pump_id, pumps)
         result = dlg.exec()
+
         name = dlg.drugNameLineEdit.text()
         dose = dlg.drugDoseSpinBox.value()
         concentration = dlg.drugConcentrationSpinBox.value()
         volume = dlg.drugVolumeSpinBox.value()
         pump = (
-            None if not dlg.usePumpCheckBox.isChecked() else dlg.pumpIdSpinBox.value()
+            None
+            if not dlg.usePumpCheckBox.isChecked()
+            else dlg.pumpComboBox.currentIndex()
         )
         return name, dose, concentration, volume, pump, result == QDialog.Accepted
 
@@ -654,6 +660,7 @@ class DrugPumpPanel(QWidget):
         self._injTime = None
         self._logBox = log_box
         self._timer.setup(pump_panel=self, alarm_sound_file=alarm_sound_file)
+        self._pumpLabel.setText(self._pump.display_name)
 
         # FIXME: this does not work??
         for widget in [
@@ -740,7 +747,7 @@ class DrugPumpPanel(QWidget):
             if self._pump.is_running():
                 self._pump.stop()
             self._pump.set_direction(self._pump.STATE.INFUSING)
-            self._pump.set_rate(SyringePumps.BOLUS_RATE, SyringePumps.BOLUS_RATE_UNITS)
+            self._pump.set_rate(self._pump.bolus_rate, self._pump.bolus_rate_units)
             self._pump.set_target_volume(
                 volume / 1000
             )  # volume is in uL but TargetVolume is in mL
@@ -841,13 +848,17 @@ class DrugPumpPanel(QWidget):
 
     # noinspection PyUnusedLocal
     def on_drug_label_click(self, event):
-        pass  # FIXME: need to implement this
-        # drugName, drugVolume, ok = CustomDialog.getDrugVolume(self, self._drugName, self._drugVolume)
-        # if ok == QDialog.Accepted:
-        #     self._drugName = drugName
-        #     self._drugVolume = drugVolume
-        #     self._drugNameLabel.setText(
-        #         self._LABEL_FORMAT.format(drugName=self._drugName, drugVolume=self._drugVolume))
+        pos = event.globalPos()
+        dlg = QDialog()
+        layout = QVBoxLayout()
+        widget = PumpConfigPanel(pump=self._pump)
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok)
+        layout.addWidget(widget)
+        layout.addWidget(buttons)
+        dlg.setLayout(layout)
+        dlg.move(pos)
+        buttons.accepted.connect(dlg.accept)
+        dlg.exec()
 
 
 class PhysioMonitorMainScreen(QMainWindow):
@@ -1065,11 +1076,12 @@ class StartDialog(QDialog):
     pumpComboBox: QComboBox
     pumpPanelFrame: QFrame
 
-    def __init__(self, config):
+    def __init__(self, config, prev_values_file):
         super().__init__()
         uic.loadUi("./GUI/StartScreen.ui", self)
         self.setWindowIcon(QIcon("../media/icon.png"))
         self.config = config
+        self._prev_values_file = prev_values_file
 
         self.buttonBox.button(QDialogButtonBox.Ok).setIcon(
             QApplication.style().standardIcon(QStyle.SP_DialogOkButton)
@@ -1140,7 +1152,7 @@ class StartDialog(QDialog):
 
         # load previous values to pre-populate dialog
         try:
-            with open(PREVIOUS_VALUES_FILE, "r", encoding="utf-8") as f:
+            with open(self._prev_values_file, "r", encoding="utf-8") as f:
                 prev_values: dict = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             prev_values = {}
@@ -1159,6 +1171,11 @@ class StartDialog(QDialog):
             for drug in prev_values["drugs"]
         ]
         prev_values["drugs"] = temp
+
+        if "pumps" in prev_values.keys():
+            for prev_pump, pump in zip(prev_values["pumps"], self.pumps):
+                pump.bolus_rate = prev_pump["bolus_rate"]
+                pump.bolus_rate_units = prev_pump["bolus_rate_units"]
 
         self.subject = Subject()
         self.drugList = prev_values["drugs"]
@@ -1217,7 +1234,7 @@ class StartDialog(QDialog):
         self.subjectCommentsTextEdit.setText(self.subject.comments)
 
         # DRUG LIST TAB
-        self.tableModel = DrugTableModel(self.drugList)
+        self.tableModel = DrugTableModel(data=self.drugList, pumps=self.pumps)
         self.drugTable.setModel(self.tableModel)
 
         self.drugTable.doubleClicked.connect(self.edit_entry)
@@ -1244,11 +1261,13 @@ class StartDialog(QDialog):
             self.pumpComboBox.setItemText(idx, p.display_name)
         clear_layout(self.pumpPanelFrame.layout())
         pumps = [p for p in self.pumps if p is not None]
-        panel = SyringePumpPanel(pump=pumps[index])
+        panel = PumpConfigPanel(pump=pumps[index])
         self.pumpPanelFrame.layout().addWidget(panel)
 
     def add_entry(self):
-        name, dose, concentration, volume, pump, ok = DrugEditDialog.get_drug_data()
+        name, dose, concentration, volume, pump, ok = DrugEditDialog.get_drug_data(
+            pumps=[p.display_name for p in self.pumps]
+        )
         if ok:
             new_drug = Drug(
                 name=name,
@@ -1276,7 +1295,7 @@ class StartDialog(QDialog):
                 ix = self.tableModel.index(row, i, QModelIndex())
                 drug_data.append(self.tableModel.data(ix, Qt.EditRole))
             name, dose, concentration, volume, pump, ok = DrugEditDialog.get_drug_data(
-                *drug_data
+                *drug_data, pumps=[p.display_name for p in self.pumps]
             )
             if ok:
                 for j, field in enumerate([name, dose, concentration, volume, pump]):
@@ -1326,14 +1345,21 @@ class StartDialog(QDialog):
         out = {
             "genotypes": self.subjectGenotypeComboBox.model().stringList(),
             "drugs": [drug.__dict__ for drug in self.drugList],
+            "pumps": [
+                {
+                    "bolus_rate": pump.bolus_rate,
+                    "bolus_rate_units": pump.bolus_rate_units,
+                }
+                for pump in self.pumps
+            ],
         }
-        with open(PREVIOUS_VALUES_FILE, "w", encoding="utf-8") as f:
+        with open(self._prev_values_file, "w", encoding="utf-8") as f:
             json.dump(out, f)
 
         super().accept()
 
 
-class SyringePumpPanel(QWidget):
+class PumpConfigPanel(QWidget):
     diameterSpinBox: QDoubleSpinBox
     bolusRateSpinBox: QDoubleSpinBox
     bolusRateComboBox: QComboBox
@@ -1374,7 +1400,7 @@ class SyringePumpPanel(QWidget):
     # noinspection PyUnusedLocal
     def update_pump(self, event=None):
         # we use this function with editingFinished, which sends no arguments
-        # and with currentIndexChanged, which sends an argument
+        # and with currentIndexChanged, which sends an argument, so we provide a default value for the argument
         self.pump.bolus_rate = self.bolusRateSpinBox.value()
         self.pump.bolus_rate_units = self.bolusRateComboBox.currentIndex()
         self.pump.set_rate(
