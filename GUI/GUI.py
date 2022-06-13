@@ -60,6 +60,9 @@ if pygame.mixer.get_init() is None:
 
 logger = logging.getLogger(__name__)
 
+MIN_VAL_QDOUBLESPINBOX = 0.1
+MAX_VAL_QDOUBLESPINBOX = 1e12
+
 
 class IconProxyStyle(QProxyStyle):
     # from https://stackoverflow.com/questions/62172781/move-icon-to-right-side-of-text-in-a-qcheckbox/62174403#62174403
@@ -295,6 +298,33 @@ class CustomDialog(QDialog):
         name = drug_name_input.text()
         volume = drug_volume_input.value()
         return name, volume, result
+
+
+class EditDrugPumpDialog(QDialog):
+    def __init__(self, parent, drug_name, drug_volume, pump, pos=None):
+        super(EditDrugPumpDialog, self).__init__(parent=parent)
+        layout = QGridLayout()
+        layout.addWidget(QLabel("Drug name:"), 0, 0)
+        self.drugNameEdit = QLineEdit(drug_name)
+        layout.addWidget(self.drugNameEdit, 0, 1)
+        layout.addWidget(QLabel("Bolus volume:"), 1, 0)
+        self.drugVolumeSpinBox = QDoubleSpinBox()
+        self.drugVolumeSpinBox.setDecimals(2)
+        self.drugVolumeSpinBox.setMinimum(MIN_VAL_QDOUBLESPINBOX)
+        self.drugVolumeSpinBox.setMaximum(MAX_VAL_QDOUBLESPINBOX)
+        self.drugVolumeSpinBox.setSuffix(" uL")
+        self.drugVolumeSpinBox.setAlignment(Qt.AlignRight)
+        self.drugVolumeSpinBox.setValue(drug_volume)
+        layout.addWidget(self.drugVolumeSpinBox, 1, 1)
+        widget = PumpConfigPanel(pump=pump)
+        layout.addWidget(widget, 2, 0, 1, 2)
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        layout.addWidget(buttons, 3, 0, 1, 2)
+        self.setLayout(layout)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        if pos is not None:
+            self.move(pos)
 
 
 class DrugEditDialog(QDialog):
@@ -849,16 +879,28 @@ class DrugPumpPanel(QWidget):
     # noinspection PyUnusedLocal
     def on_drug_label_click(self, event):
         pos = event.globalPos()
-        dlg = QDialog()
-        layout = QVBoxLayout()
-        widget = PumpConfigPanel(pump=self._pump)
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok)
-        layout.addWidget(widget)
-        layout.addWidget(buttons)
-        dlg.setLayout(layout)
-        dlg.move(pos)
-        buttons.accepted.connect(dlg.accept)
-        dlg.exec()
+        # dlg = QDialog()
+        # layout = QVBoxLayout()
+        # widget = PumpConfigPanel(pump=self._pump)
+        # buttons = QDialogButtonBox(QDialogButtonBox.Ok)
+        # layout.addWidget(widget)
+        # layout.addWidget(buttons)
+        # dlg.setLayout(layout)
+        # dlg.move(pos)
+        # buttons.accepted.connect(dlg.accept)
+        # dlg.exec()
+        dlg = EditDrugPumpDialog(
+            None, self._drugName, self._drugVolume, self._pump, pos=pos
+        )
+        ok = dlg.exec()
+        if ok == QDialog.Accepted:
+            self._drugName = dlg.drugNameEdit.text()
+            self._drugVolume = dlg.drugVolumeSpinBox.value()
+            self._drugNameLabel.setText(
+                self._LABEL_FORMAT.format(
+                    drugName=self._drugName, drugVolume=self._drugVolume
+                )
+            )
 
 
 class PhysioMonitorMainScreen(QMainWindow):

@@ -45,7 +45,7 @@
     <number>3</number>
    </property>
    <property name="spacing">
-    <number>1</number>
+    <number>0</number>
    </property>
    <item row="2" column="2">
     <widget class="QPushButton" name="_customDoseButton">
@@ -192,7 +192,10 @@ alarm</string>
          <string/>
         </property>
         <property name="decimals">
-         <number>3</number>
+         <number>2</number>
+        </property>
+        <property name="maximum">
+         <double>1000000000000000.000000000000000</double>
         </property>
         <property name="singleStep">
          <double>0.100000000000000</double>

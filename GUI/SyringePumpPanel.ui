@@ -23,7 +23,7 @@
    <item row="0" column="0">
     <widget class="QLabel" name="label_2">
      <property name="text">
-      <string>Syringe diameter (mm)</string>
+      <string>Syringe diameter</string>
      </property>
     </widget>
    </item>
@@ -39,14 +39,14 @@
      <property name="title">
       <string>Priming</string>
      </property>
-     <layout class="QGridLayout" name="gridLayout_2" rowstretch="0,0,0,0">
+     <layout class="QGridLayout" name="gridLayout_2" rowstretch="0,0,0">
       <item row="1" column="2">
        <widget class="QComboBox" name="primeFlowRateComboBox"/>
       </item>
       <item row="0" column="0">
        <widget class="QLabel" name="label_4">
         <property name="text">
-         <string>Target volume (mL)</string>
+         <string>Target volume</string>
         </property>
        </widget>
       </item>
@@ -58,10 +58,27 @@
        </widget>
       </item>
       <item row="0" column="1">
-       <widget class="QDoubleSpinBox" name="primeTargetVolSpinBox"/>
+       <widget class="QDoubleSpinBox" name="primeTargetVolSpinBox">
+        <property name="alignment">
+         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+        </property>
+        <property name="suffix">
+         <string> mL</string>
+        </property>
+        <property name="maximum">
+         <double>10000000000000.000000000000000</double>
+        </property>
+       </widget>
       </item>
       <item row="1" column="1">
-       <widget class="QDoubleSpinBox" name="primeFlowRateSpinBox"/>
+       <widget class="QDoubleSpinBox" name="primeFlowRateSpinBox">
+        <property name="alignment">
+         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+        </property>
+        <property name="maximum">
+         <double>100000000000.000000000000000</double>
+        </property>
+       </widget>
       </item>
       <item row="2" column="0">
        <widget class="QPushButton" name="doPrimeButton">
@@ -112,13 +129,27 @@
     </widget>
    </item>
    <item row="1" column="1">
-    <widget class="QDoubleSpinBox" name="bolusRateSpinBox"/>
+    <widget class="QDoubleSpinBox" name="bolusRateSpinBox">
+     <property name="alignment">
+      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+     </property>
+     <property name="maximum">
+      <double>100000000000000000000.000000000000000</double>
+     </property>
+    </widget>
    </item>
    <item row="1" column="2">
     <widget class="QComboBox" name="bolusRateComboBox"/>
    </item>
    <item row="0" column="1">
-    <widget class="QDoubleSpinBox" name="diameterSpinBox"/>
+    <widget class="QDoubleSpinBox" name="diameterSpinBox">
+     <property name="alignment">
+      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+     </property>
+     <property name="suffix">
+      <string> mm</string>
+     </property>
+    </widget>
    </item>
   </layout>
  </widget>
