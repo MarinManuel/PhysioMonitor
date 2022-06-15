@@ -999,13 +999,12 @@ class PhysioMonitorMainScreen(QMainWindow):
         self.pumps = [] if pumps is None else pumps
 
         for i, drug in enumerate(config["drug-list"]):
-            if drug.pump is not None and self.pumps[drug.pump - 1] is not None:
+            if drug.pump is not None and self.pumps[drug.pump] is not None:
                 panel = DrugPumpPanel(
                     None,
                     drug.name,
                     drug.volume,
-                    pump=self.pumps[drug.pump - 1],
-                    # FIXME should pumps be zero indexed?
+                    pump=self.pumps[drug.pump],
                     alarm_sound_file="./media/beep3x6.wav",
                     log_box=self.logBox,
                 )
