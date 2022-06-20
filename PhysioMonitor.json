@@ -11,13 +11,16 @@
         "device": 0,
         "channels": [
           0,
-          1
+          1,
+          2
         ],
         "input_modes": [
+          "SINGLE_ENDED",
           "SINGLE_ENDED",
           "SINGLE_ENDED"
         ],
         "input_ranges": [
+          "BIP10VOLTS",
           "BIP10VOLTS",
           "BIP10VOLTS"
         ]
@@ -124,7 +127,7 @@
       "alarm-enabled": false,
       "alarm-low": 3,
       "alarm-high": 5,
-      "alarm-sound-file": "media/beep2.wav"
+      "alarm-sound-file": "media/beep3.wav"
     },
     {
       "acquisition-module-index": 1,
