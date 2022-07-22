@@ -202,7 +202,7 @@ $ physio-venv/bin/pip install -r PhysioMonitor/requirements.txt
 ```sh
 cd ~/PhysioMonitor
 ~/physio-venv/bin/python ./PhysioMonitor.py -c ./PhysioMonitor.json
-```https://nidaqmx-python.readthedocs.io/en/latest/
+```https://nidaqmx-python.readthedocs.io/en/latest/```
 
 ## Install NI acquisition card
 PhysioMonitor should work with any NI instrument card that works with the [`nidaqmx`](https://nidaqmx-python.readthedocs.io/en/latest/) python module.
