@@ -596,7 +596,7 @@ class AladdinPump(SyringePump):
     __CMD_SET_PHASEFUNCTION = "FUN%d\r"  # set the program's phase function
     # ... bunch of other instructions could be here. cf p50 of the manual
     __CMD_SET_RATE = "RAT%s%s\r"  # set the rate of inf/withdraw, including unit
-    __CMD_SET_TARVOL = "VOL%s\r"  # set target volume, units depends on diameter
+    __CMD_SET_TARVOL = "VOL%s\r"  # set target volume, always in UL
     __CMD_SET_DIR = "DIR%s\r"  # set the direction of the pump
     __CMD_SET_RUNPHASE = "RUN%d\r"  # start the pumping program
     __CMD_SET_STOP = "STP\r"  # stops the pump
@@ -757,9 +757,11 @@ class AladdinPump(SyringePump):
             raise InvalidCommandException(ans)
 
     def set_target_volume(self, value):
+        """ sets the target volume in UL """
         if value < 0:
             raise ValueOORException("Target volume must be a positive float value")
         else:
+            self.send_command(self.__CMD_SET_TARVOL % "UL")
             self.send_command(self.__CMD_SET_TARVOL % (self.format_float(value)))
 
     def get_diameter(self):

@@ -92,7 +92,7 @@
       "trend-autoscale": false,
       "trend-ymin": 0,
       "trend-ymax": 200,
-      "alarm-enabled": true,
+      "alarm-enabled": false,
       "alarm-low": 50,
       "alarm-high": 150,
       "alarm-sound-file": "media/beep2.wav"

@@ -778,9 +778,7 @@ class DrugPumpPanel(QWidget):
                 self._pump.stop()
             self._pump.set_direction(self._pump.STATE.INFUSING)
             self._pump.set_rate(self._pump.bolus_rate, self._pump.bolus_rate_units)
-            self._pump.set_target_volume(
-                volume / 1000
-            )  # volume is in uL but TargetVolume is in mL
+            self._pump.set_target_volume(volume)
             self._pump.start()
         except SyringePumps.ValueOORException:
             # noinspection PyTypeChecker
@@ -1434,7 +1432,7 @@ class PumpConfigPanel(QWidget):
         self.diameterSpinBox.setValue(self.pump.get_diameter())
         self.bolusRateSpinBox.setValue(self.pump.bolus_rate)
         self.bolusRateComboBox.setCurrentIndex(self.pump.bolus_rate_units)
-        self.primeTargetVolSpinBox.setValue(self.pump.get_target_volume())
+        self.primeTargetVolSpinBox.setValue(self.pump.get_target_volume() / 1e3)
         self.primeFlowRateSpinBox.setValue(self.pump.get_rate())
         self.primeFlowRateComboBox.setCurrentIndex(self.pump.get_units())
 
@@ -1447,7 +1445,7 @@ class PumpConfigPanel(QWidget):
         self.pump.set_rate(
             self.primeFlowRateSpinBox.value(), self.primeFlowRateComboBox.currentIndex()
         )
-        self.pump.set_target_volume(self.primeTargetVolSpinBox.value())
+        self.pump.set_target_volume(self.primeTargetVolSpinBox.value() * 1e3)
 
     # noinspection PyUnusedLocal
     def on_prime_toggled(self, clicked):
@@ -1464,7 +1462,9 @@ class PumpConfigPanel(QWidget):
                     self.primeFlowRateSpinBox.value(),
                     self.primeFlowRateComboBox.currentIndex(),
                 )
-                self.pump.set_target_volume(self.primeTargetVolSpinBox.value())
+                self.pump.set_target_volume(
+                    self.primeTargetVolSpinBox.value() * 1e3
+                )  # volume is in uL but dlg box is in mL
                 self.pump.start()
             except SyringePumps.ValueOORException:
                 # noinspection PyTypeChecker
@@ -1498,7 +1498,9 @@ class PumpConfigPanel(QWidget):
                 round(
                     100
                     * self.pump.get_accumulated_volume()
-                    / self.primeTargetVolSpinBox.value()
+                    / (
+                        self.primeTargetVolSpinBox.value() * 1e3
+                    )  # convert mL for dialog box to uL
                 )
             )
             time.sleep(0.1)
