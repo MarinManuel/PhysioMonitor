@@ -1434,7 +1434,7 @@ class PumpConfigPanel(QWidget):
         self.diameterSpinBox.setValue(self.pump.get_diameter())
         self.bolusRateSpinBox.setValue(self.pump.bolus_rate)
         self.bolusRateComboBox.setCurrentIndex(self.pump.bolus_rate_units)
-        self.primeTargetVolSpinBox.setValue(self.pump.get_target_volume())
+        self.primeTargetVolSpinBox.setValue(self.pump.get_target_volume() / 1e3)
         self.primeFlowRateSpinBox.setValue(self.pump.get_rate())
         self.primeFlowRateComboBox.setCurrentIndex(self.pump.get_units())
 
@@ -1447,7 +1447,7 @@ class PumpConfigPanel(QWidget):
         self.pump.set_rate(
             self.primeFlowRateSpinBox.value(), self.primeFlowRateComboBox.currentIndex()
         )
-        self.pump.set_target_volume(self.primeTargetVolSpinBox.value())
+        self.pump.set_target_volume(self.primeTargetVolSpinBox.value() * 1e3)
 
     # noinspection PyUnusedLocal
     def on_prime_toggled(self, clicked):
