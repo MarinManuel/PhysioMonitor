@@ -1500,7 +1500,9 @@ class PumpConfigPanel(QWidget):
                 round(
                     100
                     * self.pump.get_accumulated_volume()
-                    / self.primeTargetVolSpinBox.value()
+                    / (
+                        self.primeTargetVolSpinBox.value() * 1e3
+                    )  # convert mL for dialog box to uL
                 )
             )
             time.sleep(0.1)
