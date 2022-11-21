@@ -1464,7 +1464,9 @@ class PumpConfigPanel(QWidget):
                     self.primeFlowRateSpinBox.value(),
                     self.primeFlowRateComboBox.currentIndex(),
                 )
-                self.pump.set_target_volume(self.primeTargetVolSpinBox.value())
+                self.pump.set_target_volume(
+                    self.primeTargetVolSpinBox.value() * 1e3
+                )  # volume is in uL but dlg box is in mL
                 self.pump.start()
             except SyringePumps.ValueOORException:
                 # noinspection PyTypeChecker
