@@ -93,7 +93,7 @@ class Subject(object):
         weight: int = 0,
         sex: Sex = Sex.UNKNOWN,
         genotype="",
-        dob: datetime = datetime.date.fromtimestamp(0),
+        dob: datetime = datetime.date.today(),  # if unknown, use today's date as DoB cannot be very far from there
         comments="",
     ):
         self.weight = weight

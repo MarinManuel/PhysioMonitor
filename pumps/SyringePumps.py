@@ -1,16 +1,15 @@
 import logging
 import re
-from enum import IntEnum
-import serial
 import time
+from enum import IntEnum
 
 from PyQt5.QtCore import QTimer
 
 logger = logging.getLogger(__name__)
 
-# bolus injection done at 1 mL/min
-BOLUS_RATE = 1.0
-BOLUS_RATE_UNITS: int = 1
+# default values for bolus injections
+DEFAULT_BOLUS_RATE = 1.0
+DEFAULT_BOLUS_RATE_UNITS: int = 1
 
 
 class SyringePump(object):
@@ -29,6 +28,8 @@ class SyringePump(object):
     min_val = 0.001
     max_val = 9999
     _display_name = ""
+    _bolus_rate = DEFAULT_BOLUS_RATE
+    _bolus_rate_units = DEFAULT_BOLUS_RATE_UNITS
 
     def __init__(self):
         """
@@ -157,6 +158,22 @@ class SyringePump(object):
     def display_name(self, value: str):
         self._display_name = value
 
+    @property
+    def bolus_rate(self):
+        return self._bolus_rate
+
+    @bolus_rate.setter
+    def bolus_rate(self, value):
+        self._bolus_rate = value
+
+    @property
+    def bolus_rate_units(self):
+        return self._bolus_rate_units
+
+    @bolus_rate_units.setter
+    def bolus_rate_units(self, value):
+        self._bolus_rate_units = value
+
 
 class SyringePumpException(Exception):
     pass
@@ -197,7 +214,7 @@ class UnforeseenException(SyringePumpException):
 class DummyPump(SyringePump):
     # noinspection PyMissingConstructor
     def __init__(
-        self, serial_port: serial.Serial, diameter=10, rate=20, units=0, display_name=""
+        self, serial_port, diameter=10, rate=20, units=0, target_vol=0, display_name=""
     ):
         self.serial = serial_port
         self.currDir = self.STATE.INFUSING
@@ -205,7 +222,7 @@ class DummyPump(SyringePump):
         self.currDiameter = diameter
         self.currRate = rate
         self.currUnits = units
-        self.targetVolume = 0
+        self.targetVolume = target_vol
         self.display_name = display_name
 
     def __del__(self):
@@ -486,7 +503,7 @@ class Model11plusPump(SyringePump):
 
 # noinspection SpellCheckingInspection
 class AladdinPump(SyringePump):
-    _readTimeout = 1  # second
+    TIMEOUT = 1.0  # second
     # ******* PUMP ANSWERS ******
     __ANS_TRUE = "1"
     __ANS_FALSE = "0"
@@ -610,6 +627,7 @@ class AladdinPump(SyringePump):
             self.serial.flush()
             self.serial.flushInput()
             self.serial.flushOutput()
+            self.serial.timeout = self.TIMEOUT
         self.do_beep()
 
     def __del__(self):
@@ -639,15 +657,14 @@ class AladdinPump(SyringePump):
         command = f"{self.address:02d}{command}"
         logger.debug('>>sending command "%s"...' % (command.replace("\r", "\\r")))
         self.serial.write(command.encode())
-        send_time = time.time()
-        ans = ""
-        nb_bytes = 0
-        while ans[-1:] != "\x03":
-            nb_char = self.serial.inWaiting()
-            nb_bytes += nb_char
-            ans += self.serial.read(nb_char).decode()
-            if (time.time() - send_time) > self._readTimeout:
-                raise ReadTimeoutException("Timeout while waiting for an answer")
+        ans = self.serial.read_until(b"\x03").decode()
+        nb_bytes = len(ans)
+        # while ans[-1:] != "\x03":
+        #     nb_char = self.serial.inWaiting()
+        #     nb_bytes += nb_char
+        #     ans += self.serial.read(nb_char).decode()
+        #     if (time.time() - send_time) > self._readTimeout:
+        #         raise ReadTimeoutException("Timeout while waiting for an answer")
         self.serial.flush()
         self.serial.flushInput()
         self.serial.flushOutput()
@@ -740,7 +757,7 @@ class AladdinPump(SyringePump):
             raise InvalidCommandException(ans)
 
     def set_target_volume(self, value):
-        if value <= 0:
+        if value < 0:
             raise ValueOORException("Target volume must be a positive float value")
         else:
             self.send_command(self.__CMD_SET_TARVOL % (self.format_float(value)))
@@ -771,7 +788,8 @@ class AladdinPump(SyringePump):
         ans = self.send_command(self.__CMD_GET_DISVOL)
         m = re.match(self.__ANS_DISVOL_PATTERN, ans)
         if m:
-            return float(m.group(1))
+            vol = float(m.group(1))
+            return vol
         else:
             raise UnforeseenException("Error while parsing accumulated volume")
 
@@ -779,7 +797,8 @@ class AladdinPump(SyringePump):
         ans = self.send_command(self.__CMD_GET_DISVOL)
         m = re.match(self.__ANS_DISVOL_PATTERN, ans)
         if m:
-            return float(m.group(2))
+            vol = float(m.group(2))
+            return vol
         else:
             raise UnforeseenException("Error while parsing accumulated volume")
 

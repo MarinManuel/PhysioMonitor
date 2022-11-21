@@ -195,14 +195,26 @@
   "syringe-pump": {
     "serial-ports": [
       {
-        "port": null
+        "port": "/dev/ttyUSB1",
+        "baudrate": 19200
       }
     ],
     "pumps": [
       {
-        "module-name": "dummy",
+        "display-name": "Green Pump",
+        "module-name": "aladdin",
         "serial-port": 0,
-        "module-args": {}
+        "module-args": {
+          "address": 0
+        }
+      },
+      {
+        "display-name": "Blue Pump",
+        "module-name": "aladdin",
+        "serial-port": 0,
+        "module-args": {
+          "address": 1
+        }
       }
     ]
   }

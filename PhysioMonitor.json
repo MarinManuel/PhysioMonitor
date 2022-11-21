@@ -2,7 +2,7 @@
   "base-folder": "/home/RECORDINGS/",
   "create-sub-folder": true,
   "log-filename": "SurgicalLog.txt",
-  "measurements-output-period-min": 5,
+  "measurements-output-period-min": 1,
   "acquisition-modules": [
     {
       "module-name": "mcc",
@@ -11,13 +11,16 @@
         "device": 0,
         "channels": [
           0,
-          1
+          1,
+          2
         ],
         "input_modes": [
+          "SINGLE_ENDED",
           "SINGLE_ENDED",
           "SINGLE_ENDED"
         ],
         "input_ranges": [
+          "BIP10VOLTS",
           "BIP10VOLTS",
           "BIP10VOLTS"
         ]
@@ -65,6 +68,37 @@
     },
     {
       "acquisition-module-index": 0,
+      "channel-index": 2,
+      "window-size": 1,
+      "line-color": "#007F00",
+      "line-width": 2,
+      "label": "BP",
+      "units": "mmHg",
+      "scale": 100.0,
+      "offset": 0.0,
+      "autoscale": false,
+      "ymin": 0,
+      "ymax": 200,
+      "persistence": 1,
+      "trigger-mode": "AUTO",
+      "trigger-level": 1.0,
+      "auto-trigger-level": true,
+      "trend-window-size": 1800,
+      "trend-period": 1,
+      "trend-function": "average",
+      "trend-function-args": {
+      },
+      "trend-units": "mmHg",
+      "trend-autoscale": false,
+      "trend-ymin": 0,
+      "trend-ymax": 200,
+      "alarm-enabled": true,
+      "alarm-low": 50,
+      "alarm-high": 150,
+      "alarm-sound-file": "media/beep2.wav"
+    },
+    {
+      "acquisition-module-index": 0,
       "channel-index": 1,
       "window-size": 10,
       "line-color": "b",
@@ -93,7 +127,7 @@
       "alarm-enabled": false,
       "alarm-low": 3,
       "alarm-high": 5,
-      "alarm-sound-file": "media/beep2.wav"
+      "alarm-sound-file": "media/beep3.wav"
     },
     {
       "acquisition-module-index": 1,
@@ -167,7 +201,7 @@
     ],
     "pumps": [
       {
-        "display-name": "Pump 1",
+        "display-name": "Green Pump",
         "module-name": "aladdin",
         "serial-port": 0,
         "module-args": {
@@ -175,7 +209,7 @@
         }
       },
       {
-        "display-name": "Pump 2",
+        "display-name": "Blue Pump",
         "module-name": "aladdin",
         "serial-port": 0,
         "module-args": {

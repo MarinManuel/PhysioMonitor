@@ -40,19 +40,18 @@ from PyQt5.QtWidgets import (
     QTableView,
     QMessageBox,
     QMainWindow,
+    QProgressBar,
+    QFrame,
 )
 
 from GUI.Models import DrugTableModel
 from GUI.scope import ScopeLayoutWidget, PagedScope, ScrollingScope
 from misc import Drug, Sex, Subject, LogBox
 from pumps import SyringePumps
-from pumps.SyringePumps import SyringePumpException, AVAIL_PUMP_MODULES
+from pumps.SyringePumps import SyringePumpException, AVAIL_PUMP_MODULES, SyringePump
 
 # noinspection SpellCheckingInspection
 from sampling import AVAIL_ACQ_MODULES
-
-# noinspection SpellCheckingInspection
-PREVIOUS_VALUES_FILE = "prev_vals.json"
 
 # if it hasn't been already, initialize the sound mixer
 if pygame.mixer.get_init() is None:
@@ -60,6 +59,9 @@ if pygame.mixer.get_init() is None:
     pygame.mixer.init()
 
 logger = logging.getLogger(__name__)
+
+MIN_VAL_QDOUBLESPINBOX = 0.1
+MAX_VAL_QDOUBLESPINBOX = 1e12
 
 
 class IconProxyStyle(QProxyStyle):
@@ -298,42 +300,78 @@ class CustomDialog(QDialog):
         return name, volume, result
 
 
+class EditDrugPumpDialog(QDialog):
+    def __init__(self, parent, drug_name, drug_volume, pump, pos=None):
+        super(EditDrugPumpDialog, self).__init__(parent=parent)
+        layout = QGridLayout()
+        layout.addWidget(QLabel("Drug name:"), 0, 0)
+        self.drugNameEdit = QLineEdit(drug_name)
+        layout.addWidget(self.drugNameEdit, 0, 1)
+        layout.addWidget(QLabel("Bolus volume:"), 1, 0)
+        self.drugVolumeSpinBox = QDoubleSpinBox()
+        self.drugVolumeSpinBox.setDecimals(2)
+        self.drugVolumeSpinBox.setMinimum(MIN_VAL_QDOUBLESPINBOX)
+        self.drugVolumeSpinBox.setMaximum(MAX_VAL_QDOUBLESPINBOX)
+        self.drugVolumeSpinBox.setSuffix(" uL")
+        self.drugVolumeSpinBox.setAlignment(Qt.AlignRight)
+        self.drugVolumeSpinBox.setValue(drug_volume)
+        layout.addWidget(self.drugVolumeSpinBox, 1, 1)
+        widget = PumpConfigPanel(pump=pump)
+        layout.addWidget(widget, 2, 0, 1, 2)
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        layout.addWidget(buttons, 3, 0, 1, 2)
+        self.setLayout(layout)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        if pos is not None:
+            self.move(pos)
+
+
 class DrugEditDialog(QDialog):
     drugNameLineEdit: QLineEdit
     drugDoseSpinBox: QDoubleSpinBox
     drugConcentrationSpinBox: QDoubleSpinBox
     drugVolumeSpinBox: QSpinBox
     usePumpCheckBox: QCheckBox
-    pumpIdSpinBox: QSpinBox
+    pumpComboBox: QComboBox
 
-    def __init__(self, name="", dose=0.0, concentration=0.0, volume=0, pump=None):
+    def __init__(
+        self, name="", dose=0.0, concentration=0.0, volume=0, pump_id=None, pumps=None
+    ):
         super().__init__()
+        pumps = [] if pumps is None else pumps
         uic.loadUi("./GUI/DrugEditDialog.ui", self)
         self.drugNameLineEdit.setText(name)
         self.drugDoseSpinBox.setValue(float(dose))
         self.drugConcentrationSpinBox.setValue(float(concentration))
         self.drugVolumeSpinBox.setValue(int(volume))
         self.usePumpCheckBox.toggled.connect(self.use_pump_toggled)
-        if pump is None:
+        self.pumpComboBox.clear()
+        self.pumpComboBox.addItems(pumps)
+        if pump_id is None or len(pumps) == 0:
             self.usePumpCheckBox.setChecked(False)
         else:
             self.usePumpCheckBox.setChecked(True)
-            self.pumpIdSpinBox.setValue(pump)
+            self.pumpComboBox.setCurrentIndex(pump_id)
 
     def use_pump_toggled(self, state):
-        self.pumpIdSpinBox.setEnabled(state)
+        self.pumpComboBox.setEnabled(state)
 
     @staticmethod
-    def get_drug_data(name="", dose=0.0, concentration=0.0, volume=0, pump=None):
-        dlg = DrugEditDialog(name, dose, concentration, volume, pump)
-
+    def get_drug_data(
+        name="", dose=0.0, concentration=0.0, volume=0, pump_id=None, pumps=None
+    ):
+        dlg = DrugEditDialog(name, dose, concentration, volume, pump_id, pumps)
         result = dlg.exec()
+
         name = dlg.drugNameLineEdit.text()
         dose = dlg.drugDoseSpinBox.value()
         concentration = dlg.drugConcentrationSpinBox.value()
         volume = dlg.drugVolumeSpinBox.value()
         pump = (
-            None if not dlg.usePumpCheckBox.isChecked() else dlg.pumpIdSpinBox.value()
+            None
+            if not dlg.usePumpCheckBox.isChecked()
+            else dlg.pumpComboBox.currentIndex()
         )
         return name, dose, concentration, volume, pump, result == QDialog.Accepted
 
@@ -652,6 +690,7 @@ class DrugPumpPanel(QWidget):
         self._injTime = None
         self._logBox = log_box
         self._timer.setup(pump_panel=self, alarm_sound_file=alarm_sound_file)
+        self._pumpLabel.setText(self._pump.display_name)
 
         # FIXME: this does not work??
         for widget in [
@@ -738,7 +777,7 @@ class DrugPumpPanel(QWidget):
             if self._pump.is_running():
                 self._pump.stop()
             self._pump.set_direction(self._pump.STATE.INFUSING)
-            self._pump.set_rate(SyringePumps.BOLUS_RATE, SyringePumps.BOLUS_RATE_UNITS)
+            self._pump.set_rate(self._pump.bolus_rate, self._pump.bolus_rate_units)
             self._pump.set_target_volume(
                 volume / 1000
             )  # volume is in uL but TargetVolume is in mL
@@ -839,13 +878,29 @@ class DrugPumpPanel(QWidget):
 
     # noinspection PyUnusedLocal
     def on_drug_label_click(self, event):
-        pass  # FIXME: need to implement this
-        # drugName, drugVolume, ok = CustomDialog.getDrugVolume(self, self._drugName, self._drugVolume)
-        # if ok == QDialog.Accepted:
-        #     self._drugName = drugName
-        #     self._drugVolume = drugVolume
-        #     self._drugNameLabel.setText(
-        #         self._LABEL_FORMAT.format(drugName=self._drugName, drugVolume=self._drugVolume))
+        pos = event.globalPos()
+        # dlg = QDialog()
+        # layout = QVBoxLayout()
+        # widget = PumpConfigPanel(pump=self._pump)
+        # buttons = QDialogButtonBox(QDialogButtonBox.Ok)
+        # layout.addWidget(widget)
+        # layout.addWidget(buttons)
+        # dlg.setLayout(layout)
+        # dlg.move(pos)
+        # buttons.accepted.connect(dlg.accept)
+        # dlg.exec()
+        dlg = EditDrugPumpDialog(
+            None, self._drugName, self._drugVolume, self._pump, pos=pos
+        )
+        ok = dlg.exec()
+        if ok == QDialog.Accepted:
+            self._drugName = dlg.drugNameEdit.text()
+            self._drugVolume = dlg.drugVolumeSpinBox.value()
+            self._drugNameLabel.setText(
+                self._LABEL_FORMAT.format(
+                    drugName=self._drugName, drugVolume=self._drugVolume
+                )
+            )
 
 
 class PhysioMonitorMainScreen(QMainWindow):
@@ -856,7 +911,7 @@ class PhysioMonitorMainScreen(QMainWindow):
     otherDrugButton: QPushButton
     addNoteButton: QPushButton
 
-    def __init__(self, config: dict):
+    def __init__(self, config: dict, pump_serial_ports=None, pumps=None):
         super().__init__()
         # Load the UI Page
         uic.loadUi("./GUI/MainScreen.ui", self)
@@ -937,70 +992,19 @@ class PhysioMonitorMainScreen(QMainWindow):
         ##
         # Serial port(s) for syringe pump
         ##
-        self.serialPorts = []
-        for serial_conf in self.config["syringe-pump"]["serial-ports"]:
-            try:
-                ser = serial.Serial(**serial_conf)
-            except serial.SerialException:
-                ser = None
-            if ser is None:
-                # noinspection PyTypeChecker
-                QMessageBox.warning(
-                    None,
-                    "Serial port error",
-                    'Cannot open serial port "{:s}"!\n'
-                    "Serial connection will not be available".format(
-                        serial_conf["port"]
-                    ),
-                )
-            self.serialPorts.append(ser)
-
+        self.serialPorts = [] if pump_serial_ports is None else pump_serial_ports
         ##
         # Syringe pump(s)
         ##
-        self.pumps = []
-        for pump_conf in self.config["syringe-pump"]["pumps"]:
-            model = pump_conf["module-name"]
-            if model not in AVAIL_PUMP_MODULES:
-                raise ValueError(
-                    f'Invalid module "{model}". Must be one of {", ".join(AVAIL_PUMP_MODULES.keys())}'
-                )
-            model = AVAIL_PUMP_MODULES[model]
-            pump = None
-            # sometimes, it takes a couple of tries for the pump to answer,
-            # so we'll try in a loop and test if it was successful
-            success = False
-            while not success:
-                for _ in range(3):
-                    try:
-                        pump = model(
-                            serial_port=self.serialPorts[pump_conf["serial-port"]],
-                            **pump_conf["module-args"],
-                        )
-                        pump.is_running()  # check that pump is working, should raise Exception if not
-                        success = True
-                        break
-                    except SyringePumpException:
-                        pump = None
-                if not success:
-                    # noinspection PyTypeChecker
-                    ans = QMessageBox.question(
-                        None,
-                        "Pump not responding",
-                        f"Cannot communicate with the pump {model}, maybe it is off?\nRetry?",
-                    )
-                    if ans == QMessageBox.No:
-                        success = True
-            self.pumps.append(pump)
+        self.pumps = [] if pumps is None else pumps
 
         for i, drug in enumerate(config["drug-list"]):
-            if drug.pump is not None and self.pumps[drug.pump - 1] is not None:
+            if drug.pump is not None and self.pumps[drug.pump] is not None:
                 panel = DrugPumpPanel(
                     None,
                     drug.name,
                     drug.volume,
-                    pump=self.pumps[drug.pump - 1],
-                    # FIXME should pumps be zero indexed?
+                    pump=self.pumps[drug.pump],
                     alarm_sound_file="./media/beep3x6.wav",
                     log_box=self.logBox,
                 )
@@ -1091,6 +1095,13 @@ class PhysioMonitorMainScreen(QMainWindow):
         event.accept()
 
 
+def clear_layout(layout):
+    while layout.count():
+        child = layout.takeAt(0)
+        if child.widget():
+            child.widget().deleteLater()
+
+
 class StartDialog(QDialog):
     expInvestigatorComboBox: QComboBox
     subjectDoBBox: QDateEdit
@@ -1102,11 +1113,16 @@ class StartDialog(QDialog):
     editDrugButton: QPushButton
     addDrugButton: QPushButton
     delDrugButton: QPushButton
+    buttonBox: QDialogButtonBox
+    pumpComboBox: QComboBox
+    pumpPanelFrame: QFrame
 
-    def __init__(self, config):
+    def __init__(self, config, prev_values_file):
         super().__init__()
         uic.loadUi("./GUI/StartScreen.ui", self)
         self.setWindowIcon(QIcon("../media/icon.png"))
+        self.config = config
+        self._prev_values_file = prev_values_file
 
         self.buttonBox.button(QDialogButtonBox.Ok).setIcon(
             QApplication.style().standardIcon(QStyle.SP_DialogOkButton)
@@ -1115,9 +1131,69 @@ class StartDialog(QDialog):
             QApplication.style().standardIcon(QStyle.SP_DialogCancelButton)
         )
 
+        ##
+        # Serial port(s) for syringe pump
+        ##
+        self.serialPorts = []
+        for serial_conf in self.config["syringe-pump"]["serial-ports"]:
+            try:
+                ser = serial.Serial(**serial_conf)
+            except serial.SerialException:
+                ser = None
+            if ser is None:
+                # noinspection PyTypeChecker
+                QMessageBox.warning(
+                    None,
+                    "Serial port error",
+                    'Cannot open serial port "{:s}"!\n'
+                    "Serial connection will not be available".format(
+                        serial_conf["port"]
+                    ),
+                )
+            self.serialPorts.append(ser)
+
+        ##
+        # Syringe pump(s)
+        ##
+        self.pumps = []
+        for pump_conf in self.config["syringe-pump"]["pumps"]:
+            model = pump_conf["module-name"]
+            if model not in AVAIL_PUMP_MODULES:
+                raise ValueError(
+                    f'Invalid module "{model}". Must be one of {", ".join(AVAIL_PUMP_MODULES.keys())}'
+                )
+            model = AVAIL_PUMP_MODULES[model]
+            pump = None
+            # sometimes, it takes a couple of tries for the pump to answer,
+            # so we'll try in a loop and test if it was successful
+            success = False
+            while not success:
+                for _ in range(3):
+                    try:
+                        pump = model(
+                            display_name=pump_conf["display-name"],
+                            serial_port=self.serialPorts[pump_conf["serial-port"]],
+                            **pump_conf["module-args"],
+                        )
+                        pump.is_running()  # check that pump is working, should raise Exception if not
+                        success = True
+                        break
+                    except SyringePumpException:
+                        pump = None
+                if not success:
+                    # noinspection PyTypeChecker
+                    ans = QMessageBox.question(
+                        None,
+                        "Pump not responding",
+                        f"Cannot communicate with the pump {model}, maybe it is off?\nRetry?",
+                    )
+                    if ans == QMessageBox.No:
+                        success = True
+            self.pumps.append(pump)
+
         # load previous values to pre-populate dialog
         try:
-            with open(PREVIOUS_VALUES_FILE, "r", encoding="utf-8") as f:
+            with open(self._prev_values_file, "r", encoding="utf-8") as f:
                 prev_values: dict = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             prev_values = {}
@@ -1137,9 +1213,14 @@ class StartDialog(QDialog):
         ]
         prev_values["drugs"] = temp
 
+        if "pumps" in prev_values.keys():
+            for prev_pump, pump in zip(prev_values["pumps"], self.pumps):
+                pump.bolus_rate = prev_pump["bolus_rate"]
+                pump.bolus_rate_units = prev_pump["bolus_rate_units"]
+
         self.subject = Subject()
         self.drugList = prev_values["drugs"]
-        self.config = config
+
         self.saveFolder = os.path.normpath(self.config["base-folder"])
         if self.config["create-sub-folder"]:
             self.saveFolder = os.path.join(
@@ -1194,7 +1275,7 @@ class StartDialog(QDialog):
         self.subjectCommentsTextEdit.setText(self.subject.comments)
 
         # DRUG LIST TAB
-        self.tableModel = DrugTableModel(self.drugList)
+        self.tableModel = DrugTableModel(data=self.drugList, pumps=self.pumps)
         self.drugTable.setModel(self.tableModel)
 
         self.drugTable.doubleClicked.connect(self.edit_entry)
@@ -1207,8 +1288,27 @@ class StartDialog(QDialog):
             )
         self.drugTable.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
 
+        # PUMPS TAB
+        if len([p for p in self.pumps if p is not None]) > 0:
+            self.pumpComboBox.clear()
+            self.pumpComboBox.addItems(
+                [p.display_name for p in self.pumps if p is not None]
+            )
+            self.pumpComboBox.currentIndexChanged.connect(self.on_pump_combo_changed)
+            self.on_pump_combo_changed(0)  # populate with first item in list
+
+    def on_pump_combo_changed(self, index):
+        for idx, p in enumerate([q for q in self.pumps if q is not None]):
+            self.pumpComboBox.setItemText(idx, p.display_name)
+        clear_layout(self.pumpPanelFrame.layout())
+        pumps = [p for p in self.pumps if p is not None]
+        panel = PumpConfigPanel(pump=pumps[index])
+        self.pumpPanelFrame.layout().addWidget(panel)
+
     def add_entry(self):
-        name, dose, concentration, volume, pump, ok = DrugEditDialog.get_drug_data()
+        name, dose, concentration, volume, pump, ok = DrugEditDialog.get_drug_data(
+            pumps=[p.display_name for p in self.pumps]
+        )
         if ok:
             new_drug = Drug(
                 name=name,
@@ -1236,7 +1336,7 @@ class StartDialog(QDialog):
                 ix = self.tableModel.index(row, i, QModelIndex())
                 drug_data.append(self.tableModel.data(ix, Qt.EditRole))
             name, dose, concentration, volume, pump, ok = DrugEditDialog.get_drug_data(
-                *drug_data
+                *drug_data, pumps=[p.display_name for p in self.pumps]
             )
             if ok:
                 for j, field in enumerate([name, dose, concentration, volume, pump]):
@@ -1286,8 +1386,129 @@ class StartDialog(QDialog):
         out = {
             "genotypes": self.subjectGenotypeComboBox.model().stringList(),
             "drugs": [drug.__dict__ for drug in self.drugList],
+            "pumps": [
+                {
+                    "bolus_rate": pump.bolus_rate,
+                    "bolus_rate_units": pump.bolus_rate_units,
+                }
+                for pump in self.pumps
+            ],
         }
-        with open(PREVIOUS_VALUES_FILE, "w", encoding="utf-8") as f:
+        with open(self._prev_values_file, "w", encoding="utf-8") as f:
             json.dump(out, f)
 
         super().accept()
+
+
+class PumpConfigPanel(QWidget):
+    diameterSpinBox: QDoubleSpinBox
+    bolusRateSpinBox: QDoubleSpinBox
+    bolusRateComboBox: QComboBox
+    doPrimeButton: QPushButton
+    primeFlowRateComboBox: QComboBox
+    primeFlowRateSpinBox: QDoubleSpinBox
+    primeProgressBar: QProgressBar
+    primeTargetVolSpinBox: QDoubleSpinBox
+
+    def __init__(self, pump: SyringePump):
+        super().__init__()
+        uic.loadUi("./GUI/SyringePumpPanel.ui", self)
+        self.pump = pump
+        self._waitThread = threading.Thread()
+        self.refresh()
+        self.doPrimeButton.clicked.connect(self.on_prime_toggled)
+        self.diameterSpinBox.editingFinished.connect(self.update_pump)
+        self.bolusRateSpinBox.editingFinished.connect(self.update_pump)
+        self.bolusRateComboBox.currentIndexChanged.connect(self.update_pump)
+        self.primeFlowRateComboBox.currentIndexChanged.connect(self.update_pump)
+        self.primeFlowRateSpinBox.editingFinished.connect(self.update_pump)
+        self.primeTargetVolSpinBox.editingFinished.connect(self.update_pump)
+
+    def refresh(self):
+        possible_units = self.pump.get_possible_units()
+        self.bolusRateComboBox.clear()
+        self.bolusRateComboBox.addItems(possible_units)
+        self.primeFlowRateComboBox.clear()
+        self.primeFlowRateComboBox.addItems(possible_units)
+
+        self.diameterSpinBox.setValue(self.pump.get_diameter())
+        self.bolusRateSpinBox.setValue(self.pump.bolus_rate)
+        self.bolusRateComboBox.setCurrentIndex(self.pump.bolus_rate_units)
+        self.primeTargetVolSpinBox.setValue(self.pump.get_target_volume())
+        self.primeFlowRateSpinBox.setValue(self.pump.get_rate())
+        self.primeFlowRateComboBox.setCurrentIndex(self.pump.get_units())
+
+    # noinspection PyUnusedLocal
+    def update_pump(self, event=None):
+        # we use this function with editingFinished, which sends no arguments
+        # and with currentIndexChanged, which sends an argument, so we provide a default value for the argument
+        self.pump.bolus_rate = self.bolusRateSpinBox.value()
+        self.pump.bolus_rate_units = self.bolusRateComboBox.currentIndex()
+        self.pump.set_rate(
+            self.primeFlowRateSpinBox.value(), self.primeFlowRateComboBox.currentIndex()
+        )
+        self.pump.set_target_volume(self.primeTargetVolSpinBox.value())
+
+    # noinspection PyUnusedLocal
+    def on_prime_toggled(self, clicked):
+        if clicked:
+            try:
+                if self.pump.is_running():
+                    self.pump.stop()
+                    # wait for thread to finish
+                    while self._waitThread.is_alive():
+                        time.sleep(0.1)
+                self.pump.set_direction(SyringePump.STATE.INFUSING)
+                self.pump.clear_accumulated_volume()
+                self.pump.set_rate(
+                    self.primeFlowRateSpinBox.value(),
+                    self.primeFlowRateComboBox.currentIndex(),
+                )
+                self.pump.set_target_volume(self.primeTargetVolSpinBox.value())
+                self.pump.start()
+            except SyringePumps.ValueOORException:
+                # noinspection PyTypeChecker
+                QMessageBox.warning(
+                    None, "Value out of range", "Cannot inject, value out of range"
+                )
+                self.primeFlowRateSpinBox.setFocus()
+
+            if self.primeTargetVolSpinBox.value() > 0:
+                # if target vol is zero, continuous perfusion, so we don't run the
+                # progress bar and don't wait for the perfusion to end.
+                self.primeProgressBar.setValue(0)
+                self._waitThread = threading.Thread(
+                    target=self.wait_for_end_of_injection,
+                    args=(),
+                )
+                self._waitThread.start()
+        else:
+            if self.pump.is_running():
+                self.pump.stop()
+                # wait for thread to finish
+                while self._waitThread.is_alive():
+                    time.sleep(0.1)
+            self.enable_prime_controls(True)
+
+    def wait_for_end_of_injection(
+        self,
+    ):
+        while self.pump.is_running():
+            self.primeProgressBar.setValue(
+                round(
+                    100
+                    * self.pump.get_accumulated_volume()
+                    / self.primeTargetVolSpinBox.value()
+                )
+            )
+            time.sleep(0.1)
+
+        # return to zero when finished
+        self.primeProgressBar.setValue(0)
+        self.doPrimeButton.setChecked(False)
+        self.enable_prime_controls(True)
+
+    def enable_prime_controls(self, enabled: bool):
+        self.primeTargetVolSpinBox.setEnabled(enabled)
+        self.primeFlowRateSpinBox.setEnabled(enabled)
+        self.primeFlowRateComboBox.setEnabled(enabled)
