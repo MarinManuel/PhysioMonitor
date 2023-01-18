@@ -1,4 +1,4 @@
-nidaqmx
+nidaqmx<0.6
 numpy
 pandas
 pygame
