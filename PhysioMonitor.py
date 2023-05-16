@@ -15,6 +15,7 @@ parser.add_argument(
     default="./PhysioMonitor.json",
 )
 parser.add_argument(
+    "-p",
     "--prev-values-file",
     help="path to the file containing the previous values to reload. Defaults to './prev_vals.json'",
     default="./prev_vals.json",

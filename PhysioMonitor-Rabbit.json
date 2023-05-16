@@ -39,7 +39,7 @@
     {
       "acquisition-module-index": 0,
       "channel-index": 0,
-      "window-size": 1,
+      "window-size": 2,
       "line-color": "#007F00",
       "line-width": 2,
       "label": "EKG",
@@ -69,7 +69,7 @@
     {
       "acquisition-module-index": 0,
       "channel-index": 2,
-      "window-size": 1,
+      "window-size": 2,
       "line-color": "#007F00",
       "line-width": 2,
       "label": "BP",
