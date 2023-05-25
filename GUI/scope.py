@@ -523,7 +523,7 @@ class ScrollingScope(pg.PlotItem):
     def _raiseContextMenu(self, ev):
         menu = self._createMenu()
         pos = ev.screenPos()
-        menu.popup(QtCore.QPoint(pos.x(), pos.y()))
+        menu.popup(QtCore.QPoint(int(pos.x()), int(pos.y())))
 
     @property
     def acquisition_module_index(self):
