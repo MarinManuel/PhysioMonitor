@@ -1129,65 +1129,68 @@ class StartDialog(QDialog):
             QApplication.style().standardIcon(QStyle.SP_DialogCancelButton)
         )
 
-        ##
-        # Serial port(s) for syringe pump
-        ##
-        self.serialPorts = []
-        for serial_conf in self.config["syringe-pump"]["serial-ports"]:
-            try:
-                ser = serial.Serial(**serial_conf)
-            except serial.SerialException:
-                ser = None
-            if ser is None:
-                # noinspection PyTypeChecker
-                QMessageBox.warning(
-                    None,
-                    "Serial port error",
-                    'Cannot open serial port "{:s}"!\n'
-                    "Serial connection will not be available".format(
-                        serial_conf["port"]
-                    ),
-                )
-            self.serialPorts.append(ser)
-
-        ##
-        # Syringe pump(s)
-        ##
-        self.pumps = []
-        for pump_conf in self.config["syringe-pump"]["pumps"]:
-            model = pump_conf["module-name"]
-            if model not in AVAIL_PUMP_MODULES:
-                raise ValueError(
-                    f'Invalid module "{model}". Must be one of {", ".join(AVAIL_PUMP_MODULES.keys())}'
-                )
-            model = AVAIL_PUMP_MODULES[model]
-            pump = None
-            # sometimes, it takes a couple of tries for the pump to answer,
-            # so we'll try in a loop and test if it was successful
-            success = False
-            while not success:
-                for _ in range(3):
+        if "syringe-pump" in self.config:
+            ##
+            # Serial port(s) for syringe pump
+            ##
+            self.serialPorts = []
+            if "serial-ports" in self.config["syringe-pump"]:
+                for serial_conf in self.config["syringe-pump"]["serial-ports"]:
                     try:
-                        pump = model(
-                            display_name=pump_conf["display-name"],
-                            serial_port=self.serialPorts[pump_conf["serial-port"]],
-                            **pump_conf["module-args"],
+                        ser = serial.Serial(**serial_conf)
+                    except serial.SerialException:
+                        ser = None
+                    if ser is None:
+                        # noinspection PyTypeChecker
+                        QMessageBox.warning(
+                            None,
+                            "Serial port error",
+                            'Cannot open serial port "{:s}"!\n'
+                            "Serial connection will not be available".format(
+                                serial_conf["port"]
+                            ),
                         )
-                        pump.is_running()  # check that pump is working, should raise Exception if not
-                        success = True
-                        break
-                    except SyringePumpException:
-                        pump = None
-                if not success:
-                    # noinspection PyTypeChecker
-                    ans = QMessageBox.question(
-                        None,
-                        "Pump not responding",
-                        f"Cannot communicate with the pump {model}, maybe it is off?\nRetry?",
-                    )
-                    if ans == QMessageBox.No:
-                        success = True
-            self.pumps.append(pump)
+                    self.serialPorts.append(ser)
+
+            ##
+            # Syringe pump(s)
+            ##
+            self.pumps = []
+            if "pumps" in self.config["syringe-pump"]:
+                for pump_conf in self.config["syringe-pump"]["pumps"]:
+                    model = pump_conf["module-name"]
+                    if model not in AVAIL_PUMP_MODULES:
+                        raise ValueError(
+                            f'Invalid module "{model}". Must be one of {", ".join(AVAIL_PUMP_MODULES.keys())}'
+                        )
+                    model = AVAIL_PUMP_MODULES[model]
+                    pump = None
+                    # sometimes, it takes a couple of tries for the pump to answer,
+                    # so we'll try in a loop and test if it was successful
+                    success = False
+                    while not success:
+                        for _ in range(3):
+                            try:
+                                pump = model(
+                                    display_name=pump_conf["display-name"],
+                                    serial_port=self.serialPorts[pump_conf["serial-port"]],
+                                    **pump_conf["module-args"],
+                                )
+                                pump.is_running()  # check that pump is working, should raise Exception if not
+                                success = True
+                                break
+                            except SyringePumpException:
+                                pump = None
+                        if not success:
+                            # noinspection PyTypeChecker
+                            ans = QMessageBox.question(
+                                None,
+                                "Pump not responding",
+                                f"Cannot communicate with the pump {model}, maybe it is off?\nRetry?",
+                            )
+                            if ans == QMessageBox.No:
+                                success = True
+                    self.pumps.append(pump)
 
         # load previous values to pre-populate dialog
         try:
