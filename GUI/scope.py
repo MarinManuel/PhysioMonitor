@@ -285,11 +285,17 @@ class ScrollingScope(pg.PlotItem):
             self._trendCurve.setData(x=self._trendXArray, y=self._trendData)
 
             # move the trend_vlines
-            for vline in self._trend_vlines:
+            for vline in self._trend_vlines[:]:
+                # we're working on a copy of the array, so we can safely remove the obsolete vlines
                 vline: pg.InfiniteLine
                 old_x = vline.value()
                 new_x = old_x - self._trendPeriod
-                vline.setValue(new_x)
+                if new_x < 0:
+                    self._trendVB.removeItem(vline)
+                    self._trend_vlines.remove(vline)
+                    del vline  # not sure that we need this, already taken care of by garbage collection?
+                else:
+                    vline.setValue(new_x)
 
             # deal with alarm conditions
             if self.alarmEnabled:

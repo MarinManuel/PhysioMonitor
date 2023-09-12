@@ -30,7 +30,7 @@
       "trigger-mode": "RISING",
       "trigger-level": 1.0,
       "auto-trigger-level": true,
-      "trend-window-size": 1800,
+      "trend-window-size": 60,
       "trend-period": 20,
       "trend-function": "HR",
       "trend-function-args": {},
@@ -60,7 +60,7 @@
       "trigger-mode": "AUTO",
       "trigger-level": 7,
       "auto-trigger-level": false,
-      "trend-window-size": 1800,
+      "trend-window-size": 60,
       "trend-period": 10,
       "trend-function": "avgPeak",
       "trend-function-args": {
@@ -92,7 +92,7 @@
       "trigger-mode": "AUTO",
       "trigger-level": 0.0,
       "auto-trigger-level": false,
-      "trend-window-size": 1800,
+      "trend-window-size": 60,
       "trend-period": 1,
       "trend-function": "lastPeak",
       "trend-function-args": {
