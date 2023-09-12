@@ -9,8 +9,8 @@ terminalConfig = {
     "DEFAULT": nidaqmx.constants.TerminalConfiguration.DEFAULT,
     "RSE": nidaqmx.constants.TerminalConfiguration.RSE,
     "NRSE": nidaqmx.constants.TerminalConfiguration.NRSE,
-    "DIFFERENTIAL": nidaqmx.constants.TerminalConfiguration.DIFFERENTIAL,
-    "PSEUDODIFFERENTIAL": nidaqmx.constants.TerminalConfiguration.PSEUDODIFFERENTIAL,
+    "DIFFERENTIAL": nidaqmx.constants.TerminalConfiguration.DIFF,
+    "PSEUDODIFFERENTIAL": nidaqmx.constants.TerminalConfiguration.PSEUDO_DIFF,
 }
 
 
