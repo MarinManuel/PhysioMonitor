@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import collections
+import itertools
 import logging
 import os
 
@@ -14,12 +15,36 @@ from PyQt5.QtWidgets import (
     QWidget,
     QWidgetAction,
 )
-from pyqtgraph.Qt import QtCore, QtGui
+from PyQt5 import QtCore, QtGui
 
 from sampling.buffers import RollingBuffer
 
 BACKGROUND_COLOR = (226, 226, 226)
 AXES_COLOR = (0, 0, 0)
+
+# these are the colors from matplotlib tab20 colormap
+vline_colors = [
+    (31., 119., 180.),
+    (174., 199., 232.),
+    (255., 127., 14.),
+    (255., 187., 120.),
+    (44., 160., 44.),
+    (152., 223., 138.),
+    (214., 39., 40.),
+    (255., 152., 150.),
+    (148., 103., 189.),
+    (197., 176., 213.),
+    (140., 86., 75.),
+    (196., 156., 148.),
+    (227., 119., 194.),
+    (247., 182., 210.),
+    (127., 127., 127.),
+    (199., 199., 199.),
+    (188., 189., 34.),
+    (219., 219., 141.),
+    (23., 190., 207.),
+    (158., 218., 229.)]
+vline_color_iterator = itertools.cycle(vline_colors)
 
 pg.setConfigOption("background", BACKGROUND_COLOR)
 pg.setConfigOption("foreground", AXES_COLOR)
@@ -37,45 +62,45 @@ logger = logging.getLogger(__name__)
 
 class ScrollingScope(pg.PlotItem):
     def __init__(
-        self,
-        acquisition_module_index=0,
-        channel_index=0,
-        windowSize=30,  # in secs
-        sampleFreq=1000,  # in Hz
-        bgColor="w",
-        line_color="b",
-        line_width=2.0,
-        scaling=1.0,
-        offset=0.0,
-        title="plot",
-        units="V",
-        autoscale=True,
-        ymin=0.0,
-        ymax=1.0,
-        trend_line_color="r",
-        trend_line_width=3,
-        trendWindowSize=30 * 60,  # in seconds
-        trendPeriod=30,  # in seconds
-        trendFunction=None,
-        trendFuncKwargs=None,
-        trendUnits="",
-        trendAutoscale=False,
-        trendYmin=0.0,
-        trendYmax=1.0,
-        alarmEnabled=False,
-        alarmLow=0.0,
-        alarmHigh=1.0,
-        alarmSoundFile=None,
-        alarmBGColor=(255, 255, 200),
-        *args,
-        **kwargs
+            self,
+            acquisition_module_index=0,
+            channel_index=0,
+            window_size=30,  # in secs
+            sample_freq=1000,  # in Hz
+            bg_color="w",
+            line_color="b",
+            line_width=2.0,
+            scaling=1.0,
+            offset=0.0,
+            title="plot",
+            units="V",
+            autoscale=True,
+            ymin=0.0,
+            ymax=1.0,
+            trend_line_color="r",
+            trend_line_width=3,
+            trend_window_size=30 * 60,  # in seconds
+            trend_period=30,  # in seconds
+            trend_function=None,
+            trend_func_kwargs=None,
+            trend_units="",
+            trend_autoscale=False,
+            trend_ymin=0.0,
+            trend_ymax=1.0,
+            alarm_enabled=False,
+            alarm_low=0.0,
+            alarm_high=1.0,
+            alarm_sound_file=None,
+            alarm_bg_color=(255, 255, 200),
+            *args,
+            **kwargs
     ):
         super(ScrollingScope, self).__init__(*args, **kwargs)
         self._acqModIdx = acquisition_module_index
         self._channelIdx = channel_index
-        self._windowSize = windowSize
-        self._sampleFreq = sampleFreq
-        self._bgColor = bgColor
+        self._windowSize = window_size
+        self._sampleFreq = sample_freq
+        self._bgColor = bg_color
         self._lineColor = line_color
         self._lineWidth = line_width
         self._scaling = scaling
@@ -87,26 +112,26 @@ class ScrollingScope(pg.PlotItem):
         self._ymax = ymax
         self._trendLineColor = trend_line_color
         self._trendLineWidth = trend_line_width
-        self._trendWindowSize = trendWindowSize
-        self._trendPeriod = trendPeriod
-        self._trendFunction = self._selectTrendFunction(trendFunction)
-        self._trendFuncKwargs = trendFuncKwargs
-        self._trendUnits = trendUnits
-        self._trendAutoscale = trendAutoscale
-        self._trendYmin = trendYmin
-        self._trendYmax = trendYmax
-        self._alarmEnabled = alarmEnabled
-        self._alarmLow = alarmLow
-        self._alarmHigh = alarmHigh
+        self._trendWindowSize = trend_window_size
+        self._trendPeriod = trend_period
+        self._trendFunction = self._selectTrendFunction(trend_function)
+        self._trendFuncKwargs = trend_func_kwargs
+        self._trendUnits = trend_units
+        self._trendAutoscale = trend_autoscale
+        self._trendYmin = trend_ymin
+        self._trendYmax = trend_ymax
+        self._alarmEnabled = alarm_enabled
+        self._alarmLow = alarm_low
+        self._alarmHigh = alarm_high
         self._alarmTripped = False
         self._alarmMuted = False
-        self._alarmBGColor_alarm = alarmBGColor
-        if alarmSoundFile is not None and os.path.isfile(alarmSoundFile):
-            self._alarmSound = pygame.mixer.Sound(alarmSoundFile)
+        self._alarmBGColor_alarm = alarm_bg_color
+        if alarm_sound_file is not None and os.path.isfile(alarm_sound_file):
+            self._alarmSound = pygame.mixer.Sound(alarm_sound_file)
         else:
             self._alarmSound = None
 
-        self._bufferSize = int(windowSize * sampleFreq)
+        self._bufferSize = int(window_size * sample_freq)
         self._buffer = np.zeros((self._bufferSize,))
         self._xArray = np.linspace(0, self._windowSize, num=self._bufferSize)
         self._curve = self.plot(x=self._xArray, y=self._buffer)
@@ -155,10 +180,10 @@ class ScrollingScope(pg.PlotItem):
             autoExpandTextSpace=False, autoReduceTextSpace=False
         )
         # self.showAxis('top')
-        #  I'm not showing the top axis because it's taking a lot of screen real-estate
+        #  I'm not showing the top axis because it's taking a lot of screen real-estate,
         # and it's not really useful anyway
         # self.scene().addItem(self._trendVB)
-        # According to the example I'm following, I need to do this to add the second axis
+        # According to the example I'm following, I need to do this to add the second axis,
         # but it does not work at this stage, because the scene() has
         # not been created yet. Delaying this to the showEvent() method
         self._trendAxis = self._rightAxis
@@ -200,9 +225,14 @@ class ScrollingScope(pg.PlotItem):
         self._trendText.setVisible(self.trendEnabled)
         self._trendVB.addItem(self._trendText)
         self._trendAxis.setTextPen({"color": self._trendLineColor})
-        self._trendTimer = pg.QtCore.QTimer()
+        self._trendTimer = QtCore.QTimer()
         # noinspection PyUnresolvedReferences
         self._trendTimer.timeout.connect(self.onTrendTimer)
+
+        #
+        # Trend vlines
+        #
+        self._trend_vlines = []
 
         self._alarmLineHigh = pg.InfiniteLine(
             pos=self._alarmHigh,
@@ -231,8 +261,8 @@ class ScrollingScope(pg.PlotItem):
         self._trendVB.addItem(self._muteButton)
         self._muteButton.setVisible(False)
 
-    def showEvent(self, QShowEvent):
-        super(ScrollingScope, self).showEvent(QShowEvent)
+    def showEvent(self, event):
+        super(ScrollingScope, self).showEvent(event)
         self.scene().addItem(self._trendVB)
 
     def start(self):
@@ -244,34 +274,41 @@ class ScrollingScope(pg.PlotItem):
     def onTrendTimer(self):
         # logger.debug("in ScrollingPlot.onTrendTimer()")
         if self.trendEnabled:
-            retVal = self._trendFunction(
+            ret_val = self._trendFunction(
                 self._trendBuffer.values().flatten(), **self._trendFuncKwargs
             )
-            self._trendText.setPlainText("{:.1f} {!s}".format(retVal, self._trendUnits))
+            self._trendText.setPlainText("{:.1f} {!s}".format(ret_val, self._trendUnits))
             self._trendData = np.roll(
                 self._trendData, -1
             )  # shifts data along axis 1 N points to the left
-            self._trendData[-1:] = retVal
+            self._trendData[-1:] = ret_val
             self._trendCurve.setData(x=self._trendXArray, y=self._trendData)
+
+            # move the trend_vlines
+            for vline in self._trend_vlines:
+                vline: pg.InfiniteLine
+                old_x = vline.value()
+                new_x = old_x - self._trendPeriod
+                vline.setValue(new_x)
 
             # deal with alarm conditions
             if self.alarmEnabled:
-                if retVal > self._alarmHigh and not np.isnan(retVal):
+                if ret_val > self._alarmHigh and not np.isnan(ret_val):
                     if not self._alarmTripped:
                         # logger.debug(
-                        #     "Trend value reached %.2f, which is > %.2f. Tripping alarm" % (retVal, self.alarmHigh))
+                        #     "Trend value reached %.2f, which is > %.2f. Tripping alarm" % (ret_val, self.alarmHigh))
                         self.tripAlarm()
-                elif retVal < self._alarmLow and not np.isnan(retVal):
+                elif ret_val < self._alarmLow and not np.isnan(ret_val):
                     if not self._alarmTripped:
                         # logger.debug(
-                        #     "Trend value reached %.2f, which is < %.2f. Tripping alarm" % (retVal, self.alarmLow))
+                        #     "Trend value reached %.2f, which is < %.2f. Tripping alarm" % (ret_val, self.alarmLow))
                         self.tripAlarm()
                 else:
                     # value is between alarmLow and alarmHigh
                     if self._alarmTripped:
                         # logger.debug(
                         #     "Trend value: %.2f > %.2f > %.2f. resetting alarm" %
-                        #     (self.alarmLow, retVal, self.alarmHigh))
+                        #     (self.alarmLow, ret_val, self.alarmHigh))
                         self.resetAlarm()
 
     def setBackgroundColor(self, color):
@@ -290,17 +327,17 @@ class ScrollingScope(pg.PlotItem):
                 self.muteAlarm()
 
     @staticmethod
-    def _selectTrendFunction(functionName):
-        retVal = None
-        if functionName in knownTrendFunctions:
-            retVal = knownTrendFunctions[functionName]
-        elif functionName is not None:
+    def _selectTrendFunction(function_name):
+        ret_val = None
+        if function_name in knownTrendFunctions:
+            ret_val = knownTrendFunctions[function_name]
+        elif function_name is not None:
             logger.error(
                 "Trend function {} unknown. Valid functions are: {}. Continuing without trend function".format(
-                    functionName, ", ".join(knownTrendFunctions.keys())
+                    function_name, ", ".join(knownTrendFunctions.keys())
                 )
             )
-        return retVal
+        return ret_val
 
     @property
     def trendEnabled(self):
@@ -316,11 +353,11 @@ class ScrollingScope(pg.PlotItem):
         :return: noting
         """
         chunk = self._rescaleData(chunk)  # converts data in real units
-        N = chunk.size
+        chunk_length = chunk.size
         self._buffer = np.roll(
-            self._buffer, -N
-        )  # shifts data along axis 1 N points to the left
-        self._buffer[-N:] = chunk
+            self._buffer, -chunk_length
+        )  # shifts data along axis 1 chunk_length points to the left
+        self._buffer[-chunk_length:] = chunk
         self._curve.setData(x=self._xArray, y=self._buffer)
 
         # add data to trend buffer
@@ -370,7 +407,7 @@ class ScrollingScope(pg.PlotItem):
 
     def tripAlarm(self):
         if self.alarmEnabled:
-            # logger.debug("in tripAlarm(): ALARM ALARM ALARM ALARM ALARM ALARM ALARM ALARM ALARM ALARM")
+            # logger.debug("in tripAlarm(): ALARM ALARM ALARM ALARM ALARM ALARM")
             self._alarmTripped = True
             self.setBackgroundColor(self._alarmBGColor_alarm)
             if self._alarmSound is not None:
@@ -468,13 +505,13 @@ class ScrollingScope(pg.PlotItem):
         self.vb.menuAlarmEnabled.setChecked(self.alarmEnabled)
         self.vb.menuAlarmEnabled.toggled.connect(self._menuToggleAlarm)
         self.vb.menuAlarmLimits = MenuLowHighSpinAction(
-            lowVal=self.alarmLow,
-            highVal=self.alarmHigh,
+            low_val=self.alarmLow,
+            high_val=self.alarmHigh,
             units=self._trendUnits,
-            labelLow="Low threshold",
-            labelHigh="High threshold",
-            minVal=0.0,
-            maxVal=float("inf"),
+            label_low="Low threshold",
+            label_high="High threshold",
+            min_val=0.0,
+            max_val=float("inf"),
         )
         self.vb.menuAlarmLimits.lowSpin.valueChanged.connect(self._menuSetAlarmLow)
         self.vb.menuAlarmLimits.highSpin.valueChanged.connect(self._menuSetAlarmHigh)
@@ -488,24 +525,24 @@ class ScrollingScope(pg.PlotItem):
         self.vb.menuYAxis.addAction(self.vb.menuYAxisAutoscaleEnabled)
         self.vb.menuYAxisAutoscaleEnabled.toggled.connect(self._menuToggleAutoscale)
         self.vb.menuYAxisLimits = MenuLowHighSpinAction(
-            lowVal=self.ymin,
-            highVal=self.ymax,
+            low_val=self.ymin,
+            high_val=self.ymax,
             units=self._units,
-            labelHigh="Y max",
-            labelLow="Y min",
-            minVal=float("-inf"),
-            maxVal=float("inf"),
+            label_high="Y max",
+            label_low="Y min",
+            min_val=float("-inf"),
+            max_val=float("inf"),
         )
         self.vb.menuYAxisLimits.lowSpin.valueChanged.connect(self._menuSetYMin)
         self.vb.menuYAxisLimits.highSpin.valueChanged.connect(self._menuSetYMax)
         self.vb.menuTrendAxisLimits = MenuLowHighSpinAction(
-            lowVal=self._trendYmin,
-            highVal=self._trendYmax,
+            low_val=self._trendYmin,
+            high_val=self._trendYmax,
             units=self._trendUnits,
-            labelHigh="Trend max",
-            labelLow="Trend min",
-            minVal=float("-inf"),
-            maxVal=float("inf"),
+            label_high="Trend max",
+            label_low="Trend min",
+            min_val=float("-inf"),
+            max_val=float("inf"),
         )
         self.vb.menuTrendAxisLimits.lowSpin.valueChanged.connect(self._menuSetTrendMin)
         self.vb.menuTrendAxisLimits.highSpin.valueChanged.connect(self._menuSetTrendMax)
@@ -533,18 +570,30 @@ class ScrollingScope(pg.PlotItem):
     def channel_index(self):
         return self._channelIdx
 
+    def add_trend_vline(self, legend="", color=None):
+        if self.trendEnabled:
+            if color is None:
+                color = (200, 200, 100)
+            vline = pg.InfiniteLine(movable=False, angle=90, label=legend, pen=pg.mkPen({'color': color, 'width': 3}),
+                                    labelOpts={'rotateAxis': (1, 0), 'position': 0.5, 'color': color,
+                                               'fill': (200, 200, 200, 50),
+                                               'movable': True})
+            vline.setPos(self._trendXArray[-1])
+            self._trendVB.addItem(vline)
+            self._trend_vlines.append(vline)
+
 
 class MenuLowHighSpinAction(QWidgetAction):
     def __init__(
-        self,
-        parent=None,
-        lowVal=0.0,
-        highVal=0.0,
-        units="",
-        labelHigh="High value",
-        labelLow="Low value",
-        minVal=0.0,
-        maxVal=10.0,
+            self,
+            parent=None,
+            low_val=0.0,
+            high_val=0.0,
+            units="",
+            label_high="High value",
+            label_low="Low value",
+            min_val=0.0,
+            max_val=10.0,
     ):
         super().__init__(parent)
         w = QWidget()
@@ -552,17 +601,17 @@ class MenuLowHighSpinAction(QWidgetAction):
         layout.setContentsMargins(12, 0, 0, 0)
         layout.setSpacing(0)
         self.lowSpin = QDoubleSpinBox()
-        self.lowSpin.setMinimum(minVal)
-        self.lowSpin.setMaximum(maxVal)
-        self.lowSpin.setValue(lowVal)
+        self.lowSpin.setMinimum(min_val)
+        self.lowSpin.setMaximum(max_val)
+        self.lowSpin.setValue(low_val)
         self.lowSpin.setSuffix("" if len(units) == 0 else " " + units)
         self.highSpin = QDoubleSpinBox()
-        self.highSpin.setMinimum(minVal)
-        self.highSpin.setMaximum(maxVal)
-        self.highSpin.setValue(highVal)
+        self.highSpin.setMinimum(min_val)
+        self.highSpin.setMaximum(max_val)
+        self.highSpin.setValue(high_val)
         self.highSpin.setSuffix("" if len(units) == 0 else " " + units)
-        layout.addRow(labelHigh, self.highSpin)
-        layout.addRow(labelLow, self.lowSpin)
+        layout.addRow(label_high, self.highSpin)
+        layout.addRow(label_low, self.lowSpin)
         # see https://stackoverflow.com/q/70691792/1356000
         w.setFocusPolicy(self.lowSpin.focusPolicy())
         w.setFocusProxy(self.lowSpin)
@@ -574,16 +623,19 @@ class MenuLowHighSpinAction(QWidgetAction):
 
 class PagedScope(ScrollingScope):
     def __init__(
-        self,
-        persistence=0,
-        trigMode="AUTO",
-        trigLevel=1.0,
-        autoTrigLevel=True,
-        *args,
-        **kwargs
+            self,
+            persistence=0,
+            trig_mode="AUTO",
+            trig_level=1.0,
+            auto_trig_level=True,
+            *args,
+            **kwargs
     ):
+        # noinspection PyPep8Naming
         RISING_TRIGGER_MARK = "△"
+        # noinspection PyPep8Naming
         FALLING_TRIGGER_MARK = "▽"
+        # noinspection PyPep8Naming
         AUTO_TRIGGER_MARK = "❖"
 
         super(PagedScope, self).__init__(*args, **kwargs)
@@ -604,9 +656,9 @@ class PagedScope(ScrollingScope):
         )
 
         # Trigger Marker
-        self._trigMode = trigMode
-        self._trigLevel = trigLevel
-        self._autoTrigLevel = autoTrigLevel
+        self._trigMode = trig_mode
+        self._trigLevel = trig_level
+        self._autoTrigLevel = auto_trig_level
         self._trigMark = pg.TextItem(color="k", anchor=(0.25, 0.5))
         if self._trigMode.upper() == "RISING":
             self._trigMark.setPlainText(RISING_TRIGGER_MARK)
@@ -620,30 +672,30 @@ class PagedScope(ScrollingScope):
         self._trigMark.setFont(font)
         self._trigMark.setZValue(self._persistence + 100)
         self.addItem(self._trigMark)
-        leftEdge = self.viewRange()[0][0]
+        left_edge = self.viewRange()[0][0]
         bottom = self.viewRange()[1][0]
         if self._trigMode.upper() == "RISING" or self._trigMode.upper() == "FALLING":
-            self._trigMark.setPos(leftEdge, self._trigLevel)
+            self._trigMark.setPos(left_edge, self._trigLevel)
         else:
-            self._trigMark.setPos(leftEdge, bottom)
+            self._trigMark.setPos(left_edge, bottom)
 
     def _autoDefineThreshold(self):
         # logger.debug("trying to determine threshold automatically")
-        retVal = 0.0
-        minValue = self._trigLevelBuffer.min()
-        maxValue = self._trigLevelBuffer.max()
+        ret_val = 0.0
+        min_value = self._trigLevelBuffer.min()
+        max_value = self._trigLevelBuffer.max()
 
-        # logger.debug("peeking into data [%f-%f]", minValue, maxValue)
-        overallRange = maxValue - minValue
+        # logger.debug("peeking into data [%f-%f]", min_value, max_value)
+        overall_range = max_value - min_value
 
         if self._trigMode.upper() == "RISING":
-            retVal = minValue + 0.75 * overallRange
+            ret_val = min_value + 0.75 * overall_range
         elif self._trigMode.upper() == "FALLING":
-            retVal = maxValue - 0.75 * overallRange
+            ret_val = max_value - 0.75 * overall_range
         else:
             pass  # AUTO mode, no need for threshold
 
-        return retVal
+        return ret_val
 
     def _waitForTrigger(self, chunk):
         # if self._trigMode.upper() == 'RISING' or self._trigMode.upper() == 'FALLING':
@@ -651,7 +703,7 @@ class PagedScope(ScrollingScope):
         #                                                         chunk.shape,
         #                                                         self._trigMode))
         if self._autoTrigLevel and (
-            self._trigMode.upper() == "RISING" or self._trigMode == "FALLING"
+                self._trigMode.upper() == "RISING" or self._trigMode == "FALLING"
         ):
             self._trigLevel = self._autoDefineThreshold()
             self._trigMark.setPos(0, self._trigLevel)
@@ -659,7 +711,7 @@ class PagedScope(ScrollingScope):
             (a,) = np.where(chunk > self._trigLevel)
             if len(a) > 0 and a[0] > 0 and chunk[a[0] - 1] <= self._trigLevel:
                 # logger.debug("Threshold crossed at index %d. returning %d points ", a[0], len(chunk[a[0]:]))
-                return chunk[a[0] :]
+                return chunk[a[0]:]
             else:
                 # logger.debug("Threshold NOT crossed. scrapping chunk.")
                 return np.array([])
@@ -667,7 +719,7 @@ class PagedScope(ScrollingScope):
             (a,) = np.where(chunk < self._trigLevel)
             if len(a) > 0 and a[0] > 0 and chunk[a[0] - 1] >= self._trigLevel:
                 # logger.debug("Threshold crossed at index %d. returning %d points ", a[0], len(chunk[a[0]:]))
-                return chunk[a[0] :]
+                return chunk[a[0]:]
             else:
                 # logger.debug("Threshold NOT crossed. scrapping chunk.")
                 return np.array([])
@@ -677,8 +729,8 @@ class PagedScope(ScrollingScope):
     def append(self, chunk):
         chunk = np.asarray(chunk)  # make sure we have a numpy array
         # logger.debug("[%s] in append(%s)", self._title, chunk.shape)
-        N = chunk.size
-        if N == 0:
+        chunk_length = chunk.size
+        if chunk_length == 0:
             return
 
         scaled_chunk = self._rescaleData(chunk)  # converts data in real units
@@ -691,7 +743,7 @@ class PagedScope(ScrollingScope):
         if self._buffer.size == 0:  # no data in main curve yet
             scaled_chunk = self._waitForTrigger(scaled_chunk)
 
-        if self._buffer.size + N <= self._bufferSize:
+        if self._buffer.size + chunk_length <= self._bufferSize:
             self._buffer = np.concatenate([self._buffer, scaled_chunk])
             self._curve.setData(
                 x=np.linspace(
@@ -700,26 +752,26 @@ class PagedScope(ScrollingScope):
                 y=self._buffer,
             )
         else:
-            pointsToAdd = self._bufferSize - self._buffer.size
-            pointsLeft = N - pointsToAdd
-            temp = np.concatenate([self._buffer, scaled_chunk[:pointsToAdd]])
+            points_to_add = self._bufferSize - self._buffer.size
+            points_left = chunk_length - points_to_add
+            temp = np.concatenate([self._buffer, scaled_chunk[:points_to_add]])
             # create a new persistent curve
             curve = self.plot(x=self._xArray, y=temp)
             curve.setPen(color=self._lineColor, width=self._lineWidth / 2)
             self._persistCurves.append(curve)
-            nCurves = len(self._persistCurves)
+            n_curves = len(self._persistCurves)
             for i, curve in enumerate(self._persistCurves):
                 curve.setZValue(i)
-                alpha = 1.0 - (i + 1) * 1.0 / (nCurves + 1)
+                alpha = 1.0 - (i + 1) * 1.0 / (n_curves + 1)
                 curve.setPen(self._lineColor)
                 curve.setAlpha(alpha, alpha)
 
             if len(self._persistCurves) > self._persistence:
-                curveToDelete = self._persistCurves.popleft()
-                self.removeItem(curveToDelete)
+                curve_to_delete = self._persistCurves.popleft()
+                self.removeItem(curve_to_delete)
 
             self._buffer = np.array([])
-            self.append(chunk[-pointsLeft:])
+            self.append(chunk[-points_left:])
 
 
 class ScopeLayoutWidget(pg.GraphicsLayoutWidget):
@@ -804,17 +856,17 @@ def peakdet(v, delta, x=None):
 
 
 # noinspection PyUnusedLocal
-def trend_random(inData, **kwargs):
-    # logger.debug("in Scope.trend_random(). Received inData, kwargs=%s", kwargs)
-    minVal = kwargs.pop("minVal", 0.0)
-    maxVal = kwargs.pop("maxVal", 1.0)
-    return (maxVal - minVal) * np.random.random_sample() + minVal
+def trend_random(in_data, **kwargs):
+    # logger.debug("in Scope.trend_random(). Received in_data, kwargs=%s", kwargs)
+    min_val = kwargs.pop("min_val", 0.0)
+    max_val = kwargs.pop("max_val", 1.0)
+    return (max_val - min_val) * np.random.random_sample() + min_val
 
 
 # noinspection PyUnusedLocal
-def trend_get_HR(inData, **kwargs):
-    # logger.debug("in trend_get_HR(%s). got data: %s" % (inData.shape, inData.__repr__()))
-    b = np.diff(inData)  # Differentiate
+def trend_get_HR(in_data, **kwargs):
+    # logger.debug("in trend_get_HR(%s). got data: %s" % (in_data.shape, in_data.__repr__()))
+    b = np.diff(in_data)  # Differentiate
     c = np.square(b)  # square
     d = np.convolve(c, np.ones(10), "same")  # smooth
     # get RMS value to use in the peak detection algorithm
@@ -829,24 +881,24 @@ def trend_get_HR(inData, **kwargs):
 
 
 # noinspection PyUnusedLocal
-def trend_get_max(inData, **kwargs):
-    return np.max(inData)
+def trend_get_max(in_data, **kwargs):
+    return np.max(in_data)
 
 
 # noinspection PyUnusedLocal
-def trend_get_min(inData, **kwargs):
-    return np.min(inData)
+def trend_get_min(in_data, **kwargs):
+    return np.min(in_data)
 
 
 # noinspection PyUnusedLocal
-def trend_get_lastPeakValue(inData, **kwargs):
-    minSize = 0.0
+def trend_get_lastPeakValue(in_data, **kwargs):
+    min_size = 0.0
     if "peakSize" in kwargs:
-        minSize = kwargs["peakSize"]
+        min_size = kwargs["peakSize"]
     else:
         # get RMS value to use in the peak detection algorithm
-        minSize = np.sqrt(np.mean(np.square(inData)))
-    e_max, e_min = peakdet(inData, minSize)
+        min_size = np.sqrt(np.mean(np.square(in_data)))
+    e_max, e_min = peakdet(in_data, min_size)
     if len(e_max) > 0:
         ret = e_max[-1, 1]
     else:
@@ -855,14 +907,14 @@ def trend_get_lastPeakValue(inData, **kwargs):
 
 
 # noinspection PyUnusedLocal
-def trend_get_avgPeakValue(inData, **kwargs):
-    minSize = 0.0
+def trend_get_avgPeakValue(in_data, **kwargs):
+    min_size = 0.0
     if "peakSize" in kwargs:
-        minSize = kwargs["peakSize"]
+        min_size = kwargs["peakSize"]
     else:
         # get RMS value to use in the peak detection algorithm
-        minSize = np.sqrt(np.mean(np.square(inData)))
-    e_max, e_min = peakdet(inData, minSize)
+        min_size = np.sqrt(np.mean(np.square(in_data)))
+    e_max, e_min = peakdet(in_data, min_size)
     if len(e_max) > 0:
         ret = np.mean(e_max[:, 1])
     else:
@@ -871,8 +923,8 @@ def trend_get_avgPeakValue(inData, **kwargs):
 
 
 # noinspection PyUnusedLocal
-def trend_get_avg(inData, **kwargs):
-    return np.mean(inData)
+def trend_get_avg(in_data, **kwargs):
+    return np.mean(in_data)
 
 
 knownTrendFunctions = {

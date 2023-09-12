@@ -4,6 +4,7 @@ import logging
 import os
 import threading
 import time
+import typing
 from typing import List
 
 import numpy as np
@@ -45,7 +46,7 @@ from PyQt5.QtWidgets import (
 )
 
 from GUI.Models import DrugTableModel
-from GUI.scope import ScopeLayoutWidget, PagedScope, ScrollingScope
+from GUI.scope import ScopeLayoutWidget, PagedScope, ScrollingScope, vline_color_iterator
 from misc import Drug, Sex, Subject, LogBox
 from pumps import SyringePumps
 from pumps.SyringePumps import SyringePumpException, AVAIL_PUMP_MODULES, SyringePump
@@ -60,7 +61,9 @@ if pygame.mixer.get_init() is None:
 
 logger = logging.getLogger(__name__)
 
+# noinspection SpellCheckingInspection
 MIN_VAL_QDOUBLESPINBOX = 0.1
+# noinspection SpellCheckingInspection
 MAX_VAL_QDOUBLESPINBOX = 1e12
 
 
@@ -159,20 +162,20 @@ class CustomDialog(QDialog):
 
         screen_rect = QApplication.primaryScreen().geometry()
         if not screen_rect.contains(new_rect):
-            # the dialog is off screen,
+            # the dialog is off-screen,
             new_rect.moveBottomLeft(cursor_pos)
 
         self.setGeometry(new_rect)
 
     @staticmethod
     def get_double(
-        parent,
-        value=0.0,
-        min_val=0.0,
-        max_val=float("inf"),
-        units=None,
-        text=None,
-        title="Enter a value",
+            parent,
+            value=0.0,
+            min_val=0.0,
+            max_val=float("inf"),
+            units=None,
+            text=None,
+            title="Enter a value",
     ):
         dlg = CustomDialog()
 
@@ -203,7 +206,7 @@ class CustomDialog(QDialog):
 
     @staticmethod
     def get_time(
-        parent, value=0, text="Time before alarm", title="Enter the amount of time"
+            parent, value=0, text="Time before alarm", title="Enter the amount of time"
     ):
         # noinspection PyUnusedLocal
         def on_radio_click(event):
@@ -336,7 +339,7 @@ class DrugEditDialog(QDialog):
     pumpComboBox: QComboBox
 
     def __init__(
-        self, name="", dose=0.0, concentration=0.0, volume=0, pump_id=None, pumps=None
+            self, name="", dose=0.0, concentration=0.0, volume=0, pump_id=None, pumps=None
     ):
         super().__init__()
         pumps = [] if pumps is None else pumps
@@ -359,7 +362,7 @@ class DrugEditDialog(QDialog):
 
     @staticmethod
     def get_drug_data(
-        name="", dose=0.0, concentration=0.0, volume=0, pump_id=None, pumps=None
+            name="", dose=0.0, concentration=0.0, volume=0, pump_id=None, pumps=None
     ):
         dlg = DrugEditDialog(name, dose, concentration, volume, pump_id, pumps)
         result = dlg.exec()
@@ -436,10 +439,10 @@ class DrugTimer(QLabel):
         self._duration = datetime.datetime.today() - self._startTime
         self.update_text()
         if (
-            self._alarmThresh is not None
-            and self._duration.seconds > self._alarmThresh
-            and not self._isAlarmTimerPastMaxDuration
-            and not self._alarmTimer.isActive()
+                self._alarmThresh is not None
+                and self._duration.seconds > self._alarmThresh
+                and not self._isAlarmTimerPastMaxDuration
+                and not self._alarmTimer.isActive()
         ):
             self.trigger_alarm()
 
@@ -466,8 +469,8 @@ class DrugTimer(QLabel):
         )
         self._alarmTimerCount += 1
         if (
-            self._alarmTimer.isActive()
-            and self._alarmTimerCount > self._alarmTimerMaxCount
+                self._alarmTimer.isActive()
+                and self._alarmTimerCount > self._alarmTimerMaxCount
         ):
             self.on_alarm_past_max_duration()
 
@@ -522,6 +525,208 @@ class PumpTimer(DrugTimer):
             self.pumpPanel.on_full_dose_button_click(None)
 
 
+class PhysioMonitorMainScreen(QMainWindow):
+    logTextEdit: QPlainTextEdit
+    clock: ClockWidget
+    _graphLayout: ScopeLayoutWidget
+    drugPanelsLayout: QVBoxLayout
+    otherDrugButton: QPushButton
+    addNoteButton: QPushButton
+
+    def __init__(self, config: dict, pump_serial_ports=None, pumps=None):
+        super().__init__()
+        # Load the UI Page
+        uic.loadUi("./GUI/MainScreen.ui", self)
+        self.config = config
+        self.setWindowIcon(QIcon("../media/icon.png"))
+
+        ##
+        # Plots
+        ###
+        for i, channel in enumerate(config["channels"]):
+            plot = PagedScope(
+                acquisition_module_index=channel["acquisition-module-index"],
+                channel_index=channel["channel-index"],
+                sample_freq=config["acquisition-modules"][
+                    channel["acquisition-module-index"]
+                ]["sampling-rate"],
+                window_size=channel["window-size"],
+                line_color=channel["line-color"],
+                line_width=channel["line-width"],
+                scaling=channel["scale"],
+                offset=channel["offset"],
+                title=channel["label"],
+                units=channel["units"],
+                autoscale=channel["autoscale"],
+                ymin=channel["ymin"],
+                ymax=channel["ymax"],
+                persistence=channel["persistence"],
+                trig_mode=channel["trigger-mode"],
+                trig_level=channel["trigger-level"],
+                auto_trig_level=channel["auto-trigger-level"],
+                trend_window_size=channel["trend-window-size"],
+                trend_period=channel["trend-period"],
+                trend_function=channel["trend-function"],
+                trend_func_kwargs=channel["trend-function-args"],
+                trend_units=channel["trend-units"],
+                trend_autoscale=channel["trend-autoscale"],
+                trend_ymin=channel["trend-ymin"],
+                trend_ymax=channel["trend-ymax"],
+                alarm_enabled=channel["alarm-enabled"],
+                alarm_low=channel["alarm-low"],
+                alarm_high=channel["alarm-high"],
+                alarm_sound_file=channel["alarm-sound-file"],
+            )
+            self._graphLayout.addItem(plot, i, 1)
+
+        self.logBox = LogBox(
+            path=config["log-path"],
+            widget=self.logTextEdit,
+            nb_measurements=len(config["channels"]),
+        )
+
+        ##
+        # Configure acquisition system(s)
+        ##
+        self.__streams = []
+        for acq_module in config["acquisition-modules"]:
+            if acq_module["module-name"] not in AVAIL_ACQ_MODULES:
+                # noinspection PyTypeChecker
+                QMessageBox.critical(
+                    None,
+                    "Wrong acquisition module",
+                    f'ERROR: wrong acquisition module {acq_module["module-name"]}.\n'
+                    "Must be one of: " + ",".join(AVAIL_ACQ_MODULES.keys()),
+                )
+                raise ValueError("Wrong acquisition module in config file")
+            acq_mod = AVAIL_ACQ_MODULES[acq_module["module-name"]]
+            if acq_mod is None:
+                raise ModuleNotFoundError(
+                    f'ERROR: module {acq_module["module-name"]} cannot be loaded'
+                )
+            self.__streams.append(
+                acq_mod(
+                    sampling_rate=acq_module["sampling-rate"],
+                    **acq_module["module-args"],
+                )
+            )
+
+        ##
+        # Serial port(s) for syringe pump
+        ##
+        self.serialPorts = [] if pump_serial_ports is None else pump_serial_ports
+        ##
+        # Syringe pump(s)
+        ##
+        self.pumps = [] if pumps is None else pumps
+
+        for i, drug in enumerate(config["drug-list"]):
+            if drug.pump is not None and self.pumps[drug.pump] is not None:
+                panel = DrugPumpPanel(None, drug.name, drug.volume, pump=self.pumps[drug.pump],
+                                      alarm_sound_file="./media/beep3x6.wav", main_window=self)
+            else:
+                panel = DrugPanel(
+                    None,
+                    drug.name,
+                    drug.volume,
+                    alarm_sound_filename="./media/beep3x6.wav",
+                    main_window=self
+                )
+            self.drugPanelsLayout.addWidget(panel)
+
+        # Timer with callback to update plots
+        self.__refreshScopeTimer = QTimer()
+        self.__refreshScopeTimer.timeout.connect(self.update)
+
+        # Timer for dumping physio values to log_box
+        self.__physioToLogTimer = QTimer()
+        self.__physioToLogTimer.timeout.connect(self.write_physio_to_log)
+
+        ##
+        # Signals / Slots
+        ##
+        self.otherDrugButton.clicked.connect(self.add_new_drug)
+        self.addNoteButton.clicked.connect(self.add_note)
+
+    def start(self):
+        for stream in self.__streams:
+            stream.start()
+        self.__refreshScopeTimer.start(50)
+        self.__physioToLogTimer.start(
+            self.config["measurements-output-period-min"] * 60 * 1000
+        )
+        for i in range(len(self._graphLayout.centralWidget.items)):
+            plot = self._graphLayout.getItem(i, 1)
+            plot.start()
+
+    def update(self):
+        data = [stream.read() for stream in self.__streams]
+        for i in range(len(self._graphLayout.centralWidget.items)):
+            plot: ScrollingScope = self._graphLayout.getItem(i, 1)
+            d = data[plot.acquisition_module_index]
+            if d is not None and np.asarray(d).size > 0:  # some data was returned
+                d = d[plot.channel_index, :]
+                plot.append(d)
+
+    def get_physio_measurements(self) -> List:
+        measurements = []
+        for i in range(len(self._graphLayout.centralWidget.items)):
+            plot: ScrollingScope = self._graphLayout.getItem(i, 1)
+            if plot.trendEnabled:
+                value = plot.getLastTrendData()
+                measurements.append("{:.1f} {:s}".format(value, plot.getTrendUnits()))
+            else:
+                measurements.append("")
+        return measurements
+
+    def write_physio_to_log(self):
+        self.write_to_log(self.get_physio_measurements())
+
+    def write_to_log(self, measurements: typing.List, note=""):
+        self.logBox.write_to_log(measurements, note)
+
+    def add_note(self):
+        text, ok = QInputDialog.getText(self, "Add a note to the log_box", "Note:")
+        if ok and len(text) > 0:
+            self.write_to_log(self.get_physio_measurements(), note=text)
+
+    def add_new_drug(self):
+        name, volume, ok = CustomDialog.get_drug_volume(
+            self, name="", volume=0, add_inject=True
+        )
+        if ok == QDialog.Accepted or ok == QDialogButtonBox.YesToAll:
+            new_panel = DrugPanel(
+                None,
+                drug_name=name,
+                drug_volume=volume,
+                main_window=self,
+                alarm_sound_filename="media/beep3x6.wav",
+            )
+            self.drugPanelsLayout.addWidget(new_panel)
+            if ok == QDialogButtonBox.YesToAll:
+                new_panel.on_full_dose_button_click(None)
+
+    def add_vline(self, legend):
+        line_color = next(vline_color_iterator)
+        for i in range(len(self._graphLayout.centralWidget.items)):
+            plot: ScrollingScope = self._graphLayout.getItem(i, 1)
+            plot.add_trend_vline(legend, color=line_color)
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        self.__refreshScopeTimer.stop()
+        self.__physioToLogTimer.stop()
+        for stream in self.__streams:
+            stream.close()
+        event.accept()
+
+
+def clear_layout(layout):
+    while layout.count():
+        child = layout.takeAt(0)
+        if child.widget():
+            child.widget().deleteLater()
+
+
 class DrugPanel(QWidget):
     _fullDoseButton: QPushButton
     _halfDoseButton: QPushButton
@@ -532,15 +737,15 @@ class DrugPanel(QWidget):
 
     _drugName: str
     _drugVolume: float
-    _logBox: LogBox
+    _main_window: PhysioMonitorMainScreen
 
     def __init__(
-        self,
-        parent,
-        drug_name,
-        drug_volume,
-        alarm_sound_filename=None,
-        log_box: LogBox = None,
+            self,
+            parent,
+            drug_name,
+            drug_volume,
+            alarm_sound_filename=None,
+            main_window: PhysioMonitorMainScreen = None,
     ):
         super().__init__(parent)
         uic.loadUi("./GUI/DrugPanel.ui", self)
@@ -551,7 +756,7 @@ class DrugPanel(QWidget):
         self._drugName = drug_name
         self._drugVolume = drug_volume
         self._injTime = None
-        self._logBox = log_box
+        self._main_window = main_window
 
         self._drugNameLabel.setText(
             self._LABEL_FORMAT.format(
@@ -575,10 +780,12 @@ class DrugPanel(QWidget):
     # noinspection DuplicatedCode
     def do_inject_drug(self, volume):
         output = self._LABEL_FORMAT.format(drugName=self._drugName, drugVolume=volume)
-        if self._logBox is not None:
-            self._logBox.write_to_log([], note=output)
+        if self._main_window is not None:
+            self._main_window.write_to_log([], note=output)
         self._timer.reset(None)
         self._timer.start()
+
+        self._main_window.add_vline(legend=self._drugName)
 
     # noinspection PyUnusedLocal
     def on_full_dose_button_click(self, event):
@@ -640,15 +847,8 @@ class DrugPumpPanel(QWidget):
     _pumpLabel: QLabel
     _waitThread: threading.Thread
 
-    def __init__(
-        self,
-        parent,
-        drug_name,
-        drug_volume,
-        pump: SyringePumps.SyringePump,
-        alarm_sound_file=None,
-        log_box: LogBox = None,
-    ):
+    def __init__(self, parent, drug_name, drug_volume, pump: SyringePumps.SyringePump, alarm_sound_file=None,
+                 main_window: PhysioMonitorMainScreen = None):
         super().__init__(parent)
         uic.loadUi("./GUI/DrugPumpPanel.ui", self)
 
@@ -659,7 +859,7 @@ class DrugPumpPanel(QWidget):
         self._drugName = drug_name
         self._drugVolume = drug_volume
         self._injTime = None
-        self._logBox = log_box
+        self._main_window = main_window
 
         self._drugNameLabel.setText(
             self._LABEL_FORMAT.format(
@@ -688,7 +888,6 @@ class DrugPumpPanel(QWidget):
         self._drugName = drug_name
         self._drugVolume = drug_volume
         self._injTime = None
-        self._logBox = log_box
         self._timer.setup(pump_panel=self, alarm_sound_file=alarm_sound_file)
         self._pumpLabel.setText(self._pump.display_name)
 
@@ -719,7 +918,7 @@ class DrugPumpPanel(QWidget):
     def on_toggle_perf(self):
         if self._pump.is_running():
             self._pump.stop()
-            self._logBox.write_to_log(
+            self._main_window.write_to_log(
                 [], note=self._STOP_PERF_FORMAT.format(drugName=self._drugName)
             )
         else:
@@ -729,7 +928,7 @@ class DrugPumpPanel(QWidget):
                 )
                 self._pump.clear_target_volume()
                 self._pump.start()
-                self._logBox.write_to_log(
+                self._main_window.write_to_log(
                     [],
                     note=self._START_PERF_FORMAT.format(
                         drugName=self._drugName,
@@ -788,7 +987,8 @@ class DrugPumpPanel(QWidget):
             return
 
         output = self._LABEL_FORMAT.format(drugName=self._drugName, drugVolume=volume)
-        self._logBox.write_to_log([], note=output)
+        self._main_window.write_to_log([], note=output)
+        self._main_window.add_vline(legend=self._drugName)
         self._timer.start()
         # disable buttons to avoid double injections, and start a thread to wait for the injection
         # to finish
@@ -899,205 +1099,6 @@ class DrugPumpPanel(QWidget):
                     drugName=self._drugName, drugVolume=self._drugVolume
                 )
             )
-
-
-class PhysioMonitorMainScreen(QMainWindow):
-    logTextEdit: QPlainTextEdit
-    clock: ClockWidget
-    _graphLayout: ScopeLayoutWidget
-    drugPanelsLayout: QVBoxLayout
-    otherDrugButton: QPushButton
-    addNoteButton: QPushButton
-
-    def __init__(self, config: dict, pump_serial_ports=None, pumps=None):
-        super().__init__()
-        # Load the UI Page
-        uic.loadUi("./GUI/MainScreen.ui", self)
-        self.config = config
-        self.setWindowIcon(QIcon("../media/icon.png"))
-
-        ##
-        # Plots
-        ###
-        for i, channel in enumerate(config["channels"]):
-            plot = PagedScope(
-                acquisition_module_index=channel["acquisition-module-index"],
-                channel_index=channel["channel-index"],
-                sampleFreq=config["acquisition-modules"][
-                    channel["acquisition-module-index"]
-                ]["sampling-rate"],
-                windowSize=channel["window-size"],
-                linecolor=channel["line-color"],
-                linewidth=channel["line-width"],
-                scaling=channel["scale"],
-                offset=channel["offset"],
-                title=channel["label"],
-                units=channel["units"],
-                autoscale=channel["autoscale"],
-                ymin=channel["ymin"],
-                ymax=channel["ymax"],
-                persistence=channel["persistence"],
-                trigMode=channel["trigger-mode"],
-                trigLevel=channel["trigger-level"],
-                autoTrigLevel=channel["auto-trigger-level"],
-                trendWindowSize=channel["trend-window-size"],
-                trendPeriod=channel["trend-period"],
-                trendFunction=channel["trend-function"],
-                trendFuncKwargs=channel["trend-function-args"],
-                trendUnits=channel["trend-units"],
-                trendAutoscale=channel["trend-autoscale"],
-                trendYmin=channel["trend-ymin"],
-                trendYmax=channel["trend-ymax"],
-                alarmEnabled=channel["alarm-enabled"],
-                alarmLow=channel["alarm-low"],
-                alarmHigh=channel["alarm-high"],
-                alarmSoundFile=channel["alarm-sound-file"],
-            )
-            self._graphLayout.addItem(plot, i, 1)
-
-        self.logBox = LogBox(
-            path=config["log-path"],
-            widget=self.logTextEdit,
-            nb_measurements=len(config["channels"]),
-        )
-
-        ##
-        # Configure acquisition system(s)
-        ##
-        self.__streams = []
-        for acq_module in config["acquisition-modules"]:
-            if acq_module["module-name"] not in AVAIL_ACQ_MODULES:
-                # noinspection PyTypeChecker
-                QMessageBox.critical(
-                    None,
-                    "Wrong acquisition module",
-                    f'ERROR: wrong acquisition module {acq_module["module-name"]}.\n'
-                    "Must be one of: " + ",".join(AVAIL_ACQ_MODULES.keys()),
-                )
-                raise ValueError("Wrong acquisition module in config file")
-            acq_mod = AVAIL_ACQ_MODULES[acq_module["module-name"]]
-            if acq_mod is None:
-                raise ModuleNotFoundError(
-                    f'ERROR: module {acq_module["module-name"]} cannot be loaded'
-                )
-            self.__streams.append(
-                acq_mod(
-                    sampling_rate=acq_module["sampling-rate"],
-                    **acq_module["module-args"],
-                )
-            )
-
-        ##
-        # Serial port(s) for syringe pump
-        ##
-        self.serialPorts = [] if pump_serial_ports is None else pump_serial_ports
-        ##
-        # Syringe pump(s)
-        ##
-        self.pumps = [] if pumps is None else pumps
-
-        for i, drug in enumerate(config["drug-list"]):
-            if drug.pump is not None and self.pumps[drug.pump] is not None:
-                panel = DrugPumpPanel(
-                    None,
-                    drug.name,
-                    drug.volume,
-                    pump=self.pumps[drug.pump],
-                    alarm_sound_file="./media/beep3x6.wav",
-                    log_box=self.logBox,
-                )
-            else:
-                panel = DrugPanel(
-                    None,
-                    drug.name,
-                    drug.volume,
-                    alarm_sound_filename="./media/beep3x6.wav",
-                    log_box=self.logBox,
-                )
-            self.drugPanelsLayout.addWidget(panel)
-
-        # Timer with callback to update plots
-        self.__refreshScopeTimer = QTimer()
-        self.__refreshScopeTimer.timeout.connect(self.update)
-
-        # Timer for dumping physio values to log_box
-        self.__physioToLogTimer = QTimer()
-        self.__physioToLogTimer.timeout.connect(self.write_physio_to_log)
-
-        ##
-        # Signals / Slots
-        ##
-        self.otherDrugButton.clicked.connect(self.add_new_drug)
-        self.addNoteButton.clicked.connect(self.add_note)
-
-    def start(self):
-        for stream in self.__streams:
-            stream.start()
-        self.__refreshScopeTimer.start(50)
-        self.__physioToLogTimer.start(
-            self.config["measurements-output-period-min"] * 60 * 1000
-        )
-        for i in range(len(self._graphLayout.centralWidget.items)):
-            plot = self._graphLayout.getItem(i, 1)
-            plot.start()
-
-    def update(self):
-        data = [stream.read() for stream in self.__streams]
-        for i in range(len(self._graphLayout.centralWidget.items)):
-            plot: ScrollingScope = self._graphLayout.getItem(i, 1)
-            d = data[plot.acquisition_module_index]
-            if d is not None and np.asarray(d).size > 0:  # some data was returned
-                d = d[plot.channel_index, :]
-                plot.append(d)
-
-    def get_physio_measurements(self) -> List:
-        measurements = []
-        for i in range(len(self._graphLayout.centralWidget.items)):
-            plot: ScrollingScope = self._graphLayout.getItem(i, 1)
-            if plot.trendEnabled:
-                value = plot.getLastTrendData()
-                measurements.append("{:.1f} {:s}".format(value, plot.getTrendUnits()))
-            else:
-                measurements.append("")
-        return measurements
-
-    def write_physio_to_log(self):
-        self.logBox.write_to_log(self.get_physio_measurements())
-
-    def add_note(self):
-        text, ok = QInputDialog.getText(self, "Add a note to the log_box", "Note:")
-        if ok and len(text) > 0:
-            self.logBox.write_to_log(self.get_physio_measurements(), note=text)
-
-    def add_new_drug(self):
-        name, volume, ok = CustomDialog.get_drug_volume(
-            self, name="", volume=0, add_inject=True
-        )
-        if ok == QDialog.Accepted or ok == QDialogButtonBox.YesToAll:
-            new_panel = DrugPanel(
-                None,
-                drug_name=name,
-                drug_volume=volume,
-                log_box=self.logBox,
-                alarm_sound_filename="media/beep3x6.wav",
-            )
-            self.drugPanelsLayout.addWidget(new_panel)
-            if ok == QDialogButtonBox.YesToAll:
-                new_panel.on_full_dose_button_click(None)
-
-    def closeEvent(self, event: QCloseEvent) -> None:
-        self.__refreshScopeTimer.stop()
-        self.__physioToLogTimer.stop()
-        for stream in self.__streams:
-            stream.close()
-        event.accept()
-
-
-def clear_layout(layout):
-    while layout.count():
-        child = layout.takeAt(0)
-        if child.widget():
-            child.widget().deleteLater()
 
 
 class StartDialog(QDialog):
@@ -1494,7 +1495,7 @@ class PumpConfigPanel(QWidget):
             self.enable_prime_controls(True)
 
     def wait_for_end_of_injection(
-        self,
+            self,
     ):
         while self.pump.is_running():
             self.primeProgressBar.setValue(
@@ -1502,7 +1503,7 @@ class PumpConfigPanel(QWidget):
                     100
                     * self.pump.get_accumulated_volume()
                     / (
-                        self.primeTargetVolSpinBox.value() * 1e3
+                            self.primeTargetVolSpinBox.value() * 1e3
                     )  # convert mL for dialog box to uL
                 )
             )
