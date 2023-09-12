@@ -18,7 +18,7 @@ try:
     from .mccstreamer import MCCStreamer
 
     AVAIL_ACQ_MODULES["mcc"] = MCCStreamer
-except ModuleNotFoundError:
+except (ModuleNotFoundError, FileNotFoundError):
     pass
 
 try:
