@@ -710,7 +710,10 @@ class PhysioMonitorMainScreen(QMainWindow):
         line_color = next(vline_color_iterator)
         for i in range(len(self._graphLayout.centralWidget.items)):
             plot: ScrollingScope = self._graphLayout.getItem(i, 1)
-            plot.add_trend_vline(legend, color=line_color)
+            if i == 0:  # only show the legend on the top plot
+                plot.add_trend_vline(legend, color=line_color)
+            else:
+                plot.add_trend_vline("", color=line_color)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         self.__refreshScopeTimer.stop()
@@ -921,6 +924,7 @@ class DrugPumpPanel(QWidget):
             self._main_window.write_to_log(
                 [], note=self._STOP_PERF_FORMAT.format(drugName=self._drugName)
             )
+            self._main_window.add_vline(f"STOP: {self._drugName}")
         else:
             try:
                 self._pump.set_rate(
@@ -928,14 +932,16 @@ class DrugPumpPanel(QWidget):
                 )
                 self._pump.clear_target_volume()
                 self._pump.start()
+                note = self._START_PERF_FORMAT.format(
+                    drugName=self._drugName,
+                    rate=self._perfRateSpinBox.value(),
+                    units=self._perfUnitComboBox.currentText(),
+                )
                 self._main_window.write_to_log(
                     [],
-                    note=self._START_PERF_FORMAT.format(
-                        drugName=self._drugName,
-                        rate=self._perfRateSpinBox.value(),
-                        units=self._perfUnitComboBox.currentText(),
-                    ),
+                    note=note
                 )
+                self._main_window.add_vline(note)
             except SyringePumps.ValueOORException:
                 # noinspection PyTypeChecker
                 QMessageBox.information(
