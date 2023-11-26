@@ -10,6 +10,7 @@ from typing import List
 import numpy as np
 import pygame
 import serial
+# noinspection PyUnresolvedReferences
 from PyQt5 import uic
 from PyQt5.QtCore import QTimer, QRect, QModelIndex, QDate, QStringListModel, QSize
 from PyQt5.QtCore import Qt
@@ -942,7 +943,7 @@ class DrugPumpPanel(QWidget):
                     note=note
                 )
                 self._main_window.add_vline(note)
-            except SyringePumps.ValueOORException:
+            except SyringePumps.SyringePumpValueOORException:
                 # noinspection PyTypeChecker
                 QMessageBox.information(
                     None, "Value OOR", "ERROR: value is out of range for pump"
@@ -983,9 +984,9 @@ class DrugPumpPanel(QWidget):
                 self._pump.stop()
             self._pump.set_direction(self._pump.STATE.INFUSING)
             self._pump.set_rate(self._pump.bolus_rate, self._pump.bolus_rate_units)
-            self._pump.set_target_volume(volume)
+            self._pump.set_target_volume_uL(volume)
             self._pump.start()
-        except SyringePumps.ValueOORException:
+        except SyringePumps.SyringePumpValueOORException:
             # noinspection PyTypeChecker
             QMessageBox.warning(
                 None, "Value out of range", "Cannot inject, value out of range"
@@ -1439,10 +1440,10 @@ class PumpConfigPanel(QWidget):
         self.primeFlowRateComboBox.clear()
         self.primeFlowRateComboBox.addItems(possible_units)
 
-        self.diameterSpinBox.setValue(self.pump.get_diameter())
+        self.diameterSpinBox.setValue(self.pump.get_diameter_mm())
         self.bolusRateSpinBox.setValue(self.pump.bolus_rate)
         self.bolusRateComboBox.setCurrentIndex(self.pump.bolus_rate_units)
-        self.primeTargetVolSpinBox.setValue(self.pump.get_target_volume() / 1e3)
+        self.primeTargetVolSpinBox.setValue(self.pump.get_target_volume_uL() / 1e3)
         self.primeFlowRateSpinBox.setValue(self.pump.get_rate())
         self.primeFlowRateComboBox.setCurrentIndex(self.pump.get_units())
 
@@ -1455,7 +1456,7 @@ class PumpConfigPanel(QWidget):
         self.pump.set_rate(
             self.primeFlowRateSpinBox.value(), self.primeFlowRateComboBox.currentIndex()
         )
-        self.pump.set_target_volume(self.primeTargetVolSpinBox.value() * 1e3)
+        self.pump.set_target_volume_uL(self.primeTargetVolSpinBox.value() * 1e3)
 
     # noinspection PyUnusedLocal
     def on_prime_toggled(self, clicked):
@@ -1472,11 +1473,11 @@ class PumpConfigPanel(QWidget):
                     self.primeFlowRateSpinBox.value(),
                     self.primeFlowRateComboBox.currentIndex(),
                 )
-                self.pump.set_target_volume(
+                self.pump.set_target_volume_uL(
                     self.primeTargetVolSpinBox.value() * 1e3
                 )  # volume is in uL but dlg box is in mL
                 self.pump.start()
-            except SyringePumps.ValueOORException:
+            except SyringePumps.SyringePumpValueOORException:
                 # noinspection PyTypeChecker
                 QMessageBox.warning(
                     None, "Value out of range", "Cannot inject, value out of range"
@@ -1507,7 +1508,7 @@ class PumpConfigPanel(QWidget):
             self.primeProgressBar.setValue(
                 round(
                     100
-                    * self.pump.get_accumulated_volume()
+                    * self.pump.get_accumulated_volume_uL()
                     / (
                             self.primeTargetVolSpinBox.value() * 1e3
                     )  # convert mL for dialog box to uL
