@@ -40,8 +40,11 @@
        <property name="suffix">
         <string> mg/kg</string>
        </property>
+       <property name="decimals">
+        <number>4</number>
+       </property>
        <property name="maximum">
-        <double>100000000000000000.000000000000000</double>
+        <double>1000000.000000000000000</double>
        </property>
        <property name="singleStep">
         <double>0.100000000000000</double>
@@ -52,25 +55,6 @@
       <widget class="QLabel" name="concentrationLabel">
        <property name="text">
         <string>Concentration</string>
-       </property>
-      </widget>
-     </item>
-     <item row="3" column="1">
-      <widget class="QSpinBox" name="drugVolumeSpinBox">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-       <property name="suffix">
-        <string> μL</string>
-       </property>
-       <property name="prefix">
-        <string/>
-       </property>
-       <property name="maximum">
-        <number>10000000</number>
        </property>
       </widget>
      </item>
@@ -99,8 +83,11 @@
        <property name="suffix">
         <string> mg/mL</string>
        </property>
+       <property name="decimals">
+        <number>4</number>
+       </property>
        <property name="maximum">
-        <double>100000000000000000.000000000000000</double>
+        <double>1000000.000000000000000</double>
        </property>
        <property name="singleStep">
         <double>0.100000000000000</double>
@@ -127,6 +114,25 @@
        </property>
       </widget>
      </item>
+     <item row="3" column="1">
+      <widget class="QDoubleSpinBox" name="drugVolumeDoubleSpinBox">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="suffix">
+        <string> μL</string>
+       </property>
+       <property name="decimals">
+        <number>1</number>
+       </property>
+       <property name="maximum">
+        <double>1000000.000000000000000</double>
+       </property>
+      </widget>
+     </item>
     </layout>
    </item>
    <item>
@@ -145,7 +151,7 @@
   <tabstop>drugNameLineEdit</tabstop>
   <tabstop>drugDoseSpinBox</tabstop>
   <tabstop>drugConcentrationSpinBox</tabstop>
-  <tabstop>drugVolumeSpinBox</tabstop>
+  <tabstop>drugVolumeDoubleSpinBox</tabstop>
   <tabstop>usePumpCheckBox</tabstop>
  </tabstops>
  <resources/>

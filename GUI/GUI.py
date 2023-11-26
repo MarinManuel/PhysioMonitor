@@ -181,7 +181,7 @@ class CustomDialog(QDialog):
         dlg = CustomDialog()
 
         spin_box = QDoubleSpinBox(parent)
-        spin_box.setDecimals(3)
+        spin_box.setDecimals(4)
         spin_box.setMinimum(min_val)
         spin_box.setMaximum(max_val)
         spin_box.setValue(value)
@@ -313,10 +313,10 @@ class EditDrugPumpDialog(QDialog):
         layout.addWidget(self.drugNameEdit, 0, 1)
         layout.addWidget(QLabel("Bolus volume:"), 1, 0)
         self.drugVolumeSpinBox = QDoubleSpinBox()
-        self.drugVolumeSpinBox.setDecimals(2)
+        self.drugVolumeSpinBox.setDecimals(4)
         self.drugVolumeSpinBox.setMinimum(MIN_VAL_QDOUBLESPINBOX)
         self.drugVolumeSpinBox.setMaximum(MAX_VAL_QDOUBLESPINBOX)
-        self.drugVolumeSpinBox.setSuffix(" uL")
+        self.drugVolumeSpinBox.setSuffix(" μL")
         self.drugVolumeSpinBox.setAlignment(Qt.AlignRight)
         self.drugVolumeSpinBox.setValue(drug_volume)
         layout.addWidget(self.drugVolumeSpinBox, 1, 1)
@@ -335,7 +335,7 @@ class DrugEditDialog(QDialog):
     drugNameLineEdit: QLineEdit
     drugDoseSpinBox: QDoubleSpinBox
     drugConcentrationSpinBox: QDoubleSpinBox
-    drugVolumeSpinBox: QSpinBox
+    drugVolumeSpinBox: QDoubleSpinBox
     usePumpCheckBox: QCheckBox
     pumpComboBox: QComboBox
 
@@ -590,7 +590,7 @@ class PhysioMonitorMainScreen(QMainWindow):
         # Configure acquisition system(s)
         ##
         self.__streams = []
-        for acq_module in config["acquisition-modules"]:
+        for acq_module in config["acquisition-MODULES"]:
             if acq_module["module-name"] not in AVAIL_ACQ_MODULES:
                 # noinspection PyTypeChecker
                 QMessageBox.critical(
@@ -1475,7 +1475,7 @@ class PumpConfigPanel(QWidget):
                 )
                 self.pump.set_target_volume_uL(
                     self.primeTargetVolSpinBox.value() * 1e3
-                )  # volume is in uL but dlg box is in mL
+                )  # volume is in μL but dlg box is in mL
                 self.pump.start()
             except SyringePumps.SyringePumpValueOORException:
                 # noinspection PyTypeChecker
@@ -1511,7 +1511,7 @@ class PumpConfigPanel(QWidget):
                     * self.pump.get_accumulated_volume_uL()
                     / (
                             self.primeTargetVolSpinBox.value() * 1e3
-                    )  # convert mL for dialog box to uL
+                    )  # convert mL for dialog box to μL
                 )
             )
             time.sleep(0.1)
