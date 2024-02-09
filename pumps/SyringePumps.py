@@ -81,77 +81,77 @@ class SyringePump(object):
         """
         pass
 
-    def set_direction(self, value):
+    def set_direction(self, value: int):
         """
         defines the direction that the pump will run.
         inValue is an int representation of the directions that the pump is capable of running in
         """
         pass
 
-    def set_syringe_diameter(self, value):
+    def set_syringe_diameter_mm(self, value: float):
         """
         defines the diameter of the syringe in mm
         """
         pass
 
-    def set_rate(self, value, units):
+    def set_rate(self, value: float, units: int):
         """
         sets the rate of the pump
         optionally, one can also change the units (see set units)
         """
         pass
 
-    def set_target_volume(self, value):
+    def set_target_volume_uL(self, value: float):
         """
         puts the pump in fixed amount mode and defines the volume
         after which it will stop pumping
         """
         pass
 
-    def get_diameter(self):
+    def get_diameter_mm(self) -> float:
         """
         returns the current diameter (in mm) of the syringe
         """
         pass
 
-    def get_rate(self):
+    def get_rate(self) -> float:
         """
         returns the current rate of pumping as a float
         """
         pass
 
-    def get_units(self):
+    def get_units(self) -> int:
         """
         return the current units as an int
         """
         pass
 
-    def get_accumulated_volume(self):
+    def get_accumulated_volume_uL(self) -> float:
         """
-        returns the amount of liquid pumped so far as a float. Units might vary
-        """
-        pass
-
-    def get_target_volume(self):
-        """
-        returns the target volume for the pump as a float. Units might vary
+        returns the amount of liquid pumped so far (in μL)
         """
         pass
 
-    def get_direction(self):
+    def get_target_volume_uL(self) -> float:
+        """
+        returns the target volume for the pump (in μL)
+        """
+        pass
+
+    def get_direction(self) -> STATE:
         """
         returns the current direction of the pump as an int
         """
         pass
 
-    def get_possible_units(self):
+    def get_possible_units(self) -> list:
         """
         returns an array of the possible units accepted by this pump
         """
         pass
 
     @property
-    def display_name(self):
+    def display_name(self) -> str:
         return self._display_name
 
     @display_name.setter
@@ -159,19 +159,19 @@ class SyringePump(object):
         self._display_name = value
 
     @property
-    def bolus_rate(self):
+    def bolus_rate(self) -> float:
         return self._bolus_rate
 
     @bolus_rate.setter
-    def bolus_rate(self, value):
+    def bolus_rate(self, value: float):
         self._bolus_rate = value
 
     @property
-    def bolus_rate_units(self):
+    def bolus_rate_units(self) -> int:
         return self._bolus_rate_units
 
     @bolus_rate_units.setter
-    def bolus_rate_units(self, value):
+    def bolus_rate_units(self, value: int):
         self._bolus_rate_units = value
 
 
@@ -179,42 +179,42 @@ class SyringePumpException(Exception):
     pass
 
 
-class ValueOORException(SyringePumpException):
+class SyringePumpValueOORException(SyringePumpException):
     pass
 
 
-class UnknownCommandException(SyringePumpException):
+class SyringePumpUnknownCommandException(SyringePumpException):
     pass
 
 
-class PumpNotRunningException(SyringePumpException):
+class SyringePumpNotRunningException(SyringePumpException):
     pass
 
 
-class PumpNotStoppedException(SyringePumpException):
+class SyringePumpNotStoppedException(SyringePumpException):
     pass
 
 
-class PumpInvalidAnswerException(SyringePumpException):
+class SyringePumpInvalidAnswerException(SyringePumpException):
     pass
 
 
-class SyringeAlarmException(SyringePumpException):
+class SyringePumpAlarmException(SyringePumpException):
     pass
 
 
-class InvalidCommandException(SyringePumpException):
+class SyringePumpInvalidCommandException(SyringePumpException):
     pass
 
 
-class UnforeseenException(SyringePumpException):
+class SyringePumpUnforeseenException(SyringePumpException):
     pass
 
 
 class DummyPump(SyringePump):
     # noinspection PyMissingConstructor
     def __init__(
-        self, serial_port, diameter=10, rate=20, units=0, target_vol=0, display_name=""
+            self, serial_port, diameter=10, rate=20, units=0, target_vol=0, display_name=""
     ):
         self.serial = serial_port
         self.currDir = self.STATE.INFUSING
@@ -256,26 +256,26 @@ class DummyPump(SyringePump):
     def set_direction(self, value: SyringePump.STATE):
         self.currDir = value
 
-    def set_syringe_diameter(self, value: int):
+    def set_syringe_diameter_mm(self, value: int):
         if value <= 0:
-            raise ValueOORException("Diameter must be a positive value")
+            raise SyringePumpValueOORException("Diameter must be a positive value")
         else:
             self.currDiameter = value
 
     def set_rate(self, rate: int, units: int):
         if rate <= 0:
-            raise ValueOORException("Rate must be a positive value")
+            raise SyringePumpValueOORException("Rate must be a positive value")
         if units < 0 or units > (len(self.UNITS) - 1):
-            raise ValueOORException(
+            raise SyringePumpValueOORException(
                 "Units must be an integer between %d and %d" % (0, len(self.UNITS) - 1)
             )
         self.currRate = rate
         self.currUnits = units
 
-    def set_target_volume(self, value):
+    def set_target_volume_uL(self, value):
         self.targetVolume = value
 
-    def get_diameter(self):
+    def get_diameter_mm(self):
         return self.currDiameter
 
     def get_rate(self):
@@ -284,10 +284,10 @@ class DummyPump(SyringePump):
     def get_units(self):
         return self.currUnits
 
-    def get_accumulated_volume(self):
+    def get_accumulated_volume_uL(self):
         return 0
 
-    def get_target_volume(self):
+    def get_target_volume_uL(self):
         return 0
 
     def get_direction(self):
@@ -331,20 +331,19 @@ class Model11plusPump(SyringePump):
     # noinspection PyMissingConstructor
     def __init__(self, serial_port, display_name=""):
         self.serial = serial_port
-        if serial_port is not None:
-            self.serial.flush()
-            self.serial.flushInput()
-            self.serial.flushOutput()
         self.currUnits = 0
         self.display_name = display_name
 
+        self.serial.open()
+        self.serial.flush()
+        self.serial.flushInput()
+        self.serial.flushOutput()
+
     def __del__(self):
-        if self.serial is not None:
-            self.send_command(self.__CMD_QUIT_REMOTE)
-            self.serial.flush()
-            self.serial.flushInput()
-            self.serial.flushOutput()
-            self.serial.close()
+        self.send_command(self.__CMD_QUIT_REMOTE)
+        self.serial.flush()
+        self.serial.flushInput()
+        self.serial.flushOutput()
 
     def get_info(self):
         return self.get_status()
@@ -364,14 +363,14 @@ class Model11plusPump(SyringePump):
         # print "reading %d bytes in response: \"%s\""%(nbChar,repr(ans)) #DEBUG
         if ans.startswith(self.__ANS_OOR):
             # print "OOR Error encountered!" #DEBUG
-            raise ValueOORException()
+            raise SyringePumpValueOORException()
         elif ans.startswith(self.__ANS_UNKNOWN):
             # print "Unknown command Error encountered!" #DEBUG
-            raise UnknownCommandException()
+            raise SyringePumpUnknownCommandException()
         else:
             return ans
 
-    def strip_prompt(self, prompt):
+    def strip_prompt(self, prompt: str) -> str:
         prompt = prompt.replace(self.__PROMPT_STP, "")
         prompt = prompt.replace(self.__PROMPT_FWD, "")
         prompt = prompt.replace(self.__PROMPT_REV, "")
@@ -384,7 +383,7 @@ class Model11plusPump(SyringePump):
         if ans == "FWD" or ans == "REV":
             pass
         else:
-            raise PumpNotRunningException()
+            raise SyringePumpNotRunningException()
 
     def start(self):
         self.run()
@@ -395,7 +394,7 @@ class Model11plusPump(SyringePump):
         if ans == "STOPPED":
             pass
         else:
-            raise PumpNotStoppedException()
+            raise SyringePumpNotStoppedException()
 
     def clear_accumulated_volume(self):
         self.send_command(self.__CMD_CLEAR_VOLUME)
@@ -406,99 +405,101 @@ class Model11plusPump(SyringePump):
     def reverse(self):
         self.send_command(self.__CMD_REV)
 
-    def set_syringe_diameter(self, diameter):
+    def set_syringe_diameter_mm(self, diameter: float):
         self.send_command(self.__CMD_SET_DIAMETER % diameter)
 
-    def set_rate(self, value, units):
+    def set_rate(self, value: float, units: int):
         if value <= 0:
-            raise ValueOORException("Rate must be a positive value")
+            raise SyringePumpValueOORException("Rate must be a positive value")
         if units < 0 or (units > len(self.UNITS) - 1):
-            raise ValueOORException(
+            raise SyringePumpValueOORException(
                 "Units must be an integer between %d and %d" % (0, len(self.UNITS) - 1)
             )
         self.send_command(
-            (self.__CMD_SET_RATE[self.currUnits]) % value
-        )  # FIXME: this needs fixing
+            (self.__CMD_SET_RATE[units]) % value
+        )
 
-    def set_target_volume(self, value):
+    def set_target_volume_uL(self, value: float):
         self.send_command(self.__CMD_SET_TARGET % value)
 
-    def get_diameter(self):
+    def get_diameter_mm(self) -> float:
         diameter = self.send_command(self.__CMD_GET_DIAMETER)
         diameter = self.strip_prompt(diameter)
         return float(diameter)
 
-    def get_rate(self):
+    def get_rate(self) -> float:
         rate = self.send_command(self.__CMD_GET_RATE)
         rate = self.strip_prompt(rate)
         return float(rate)
 
-    def get_accumulated_volume(self):
+    # noinspection DuplicatedCode
+    def get_accumulated_volume_uL(self) -> float:
         volume = self.send_command(self.__CMD_GET_VOLUME)
         volume = self.strip_prompt(volume)
-        return float(volume)
+        volume = float(volume)
+        units = self.get_units()
+        if self.UNITS[units].upper().startswith('ML'):
+            volume *= 1e3  # if range is in mL, convert volume to μL
+        return volume
 
-    def get_version(self):
+    def get_version(self) -> str:
         version = self.send_command(self.__CMD_GET_VERSION)
         version = self.strip_prompt(version)
         return version
 
-    def get_target_volume(self):
+    # noinspection DuplicatedCode
+    def get_target_volume_uL(self) -> float:
         target = self.send_command(self.__CMD_GET_TARGET)
         target = self.strip_prompt(target)
-        return float(target)
+        target = float(target)
+        units = self.get_units()
+        if self.UNITS[units].upper().startswith('ML'):
+            target *= 1e3  # if range is in mL, convert volume to μL
+        return target
 
-    def get_units(self):
+    def get_units(self) -> int:
         units = self.send_command(self.__CMD_GET_UNITS)
         units = self.strip_prompt(units)
-        if units == "ML/HR":
-            return "ML/HR"
-        elif units == "ML/MIN":
-            return "ML/MIN"
-        elif units == "UL/HR":
-            return "UL/HR"
-        elif units == "UL/MIN":
-            return "UL/MIN"
+        upper_units = [u.upper() for u in self.UNITS]
+        if units.upper() in upper_units:
+            return upper_units.index(units.upper())
         else:
-            raise LookupError
+            raise SyringePumpInvalidAnswerException(f'Could not understand units returned by getUnits(): got "{units}"')
 
-    def get_direction(self):
+    def get_direction(self) -> SyringePump.STATE:
         _ = self.send_command("\r")
         _ = self.send_command("\r")
         ans = self.send_command("\r")
         if ans == self.__PROMPT_FWD:
-            return "FWD"
+            return self.STATE.INFUSING
         elif ans == self.__PROMPT_REV:
-            return "REV"
+            return self.STATE.WITHDRAWING
         elif ans == self.__PROMPT_STP:
-            return "STOPPED"
+            return self.STATE.STOPPED
 
-    def get_status(self):
+    def get_status(self) -> str:
         port = self.serial.portstr
         version = self.get_version()
-        diameter = self.get_diameter()
+        diameter = self.get_diameter_mm()
         rate = self.get_rate()
         units = self.get_units()
-        target = self.get_target_volume()
-        volume = self.get_accumulated_volume()
+        target = self.get_target_volume_uL()
+        volume = self.get_accumulated_volume_uL()
         direction = self.get_direction()
         return (
-            "Syringe Pump v.%s (%s) {direction: %s, diameter: %.4f mm, rate: %.4f %s, accumulated volume: %.4f, "
-            "target volume: %.4f}"
-            % (version, port, direction, diameter, rate, units, volume, target)
+                "Syringe Pump v.%s (%s) {direction: %s, diameter: %.4f mm, rate: %.4f %s, accumulated volume: %.4f, "
+                "target volume: %.4f}"
+                % (version, port, direction, diameter, rate, units, volume, target)
         )
-
-    def print_status(self):
-        print(self.get_status())
 
     def set_direction(self, value):
         pass
 
     def is_running(self):
-        return True
+        return not self.get_status() == self.STATE.STOPPED
 
     def get_possible_units(self):
-        return ""
+        return self.UNITS
 
 
 # noinspection SpellCheckingInspection
@@ -539,20 +540,20 @@ class AladdinPump(SyringePump):
     __ANS_ALARM_PHASEOOR = "O"
     # regexp to extract status and message in response packet
     __ANS_PATTERN = (
-        r"""^\x02([0-9]{2})(["""
-        + __ANS_STATUS_INFUSING
-        + __ANS_STATUS_WITHDRAWING
-        + __ANS_STATUS_STOPPED
-        + __ANS_STATUS_PAUSED
-        + __ANS_STATUS_PAUSEPHASE
-        + __ANS_STATUS_TRIGGERWAIT
-        + """]|A\?["""
-        + __ANS_ALARM_RESET
-        + __ANS_ALARM_STALLED
-        + __ANS_ALARM_TIMEOUT
-        + __ANS_ALARM_PROGERROR
-        + __ANS_ALARM_PHASEOOR
-        + """])(.*)\x03$"""
+            r"""^\x02([0-9]{2})(["""
+            + __ANS_STATUS_INFUSING
+            + __ANS_STATUS_WITHDRAWING
+            + __ANS_STATUS_STOPPED
+            + __ANS_STATUS_PAUSED
+            + __ANS_STATUS_PAUSEPHASE
+            + __ANS_STATUS_TRIGGERWAIT
+            + """]|A\?["""
+            + __ANS_ALARM_RESET
+            + __ANS_ALARM_STALLED
+            + __ANS_ALARM_TIMEOUT
+            + __ANS_ALARM_PROGERROR
+            + __ANS_ALARM_PHASEOOR
+            + """])(.*)\x03$"""
     )
     # regexp to extract model and version numbers
     __ANS_VER_PATTERN = r"^NE([0-9]+)V([0-9]+).([0-9]+)$"
@@ -594,7 +595,7 @@ class AladdinPump(SyringePump):
     __CMD_SET_DIAMETER = "DIA%.2f\r"  # set the syringe diameter
     __CMD_SET_PHASE = "PHN%d\r"  # set the phase number
     __CMD_SET_PHASEFUNCTION = "FUN%d\r"  # set the program's phase function
-    # ... bunch of other instructions could be here. cf p50 of the manual
+    # ... a bunch of other instructions could be here. cf p50 of the manual
     __CMD_SET_RATE = "RAT%s%s\r"  # set the rate of inf/withdraw, including unit
     __CMD_SET_TARVOL = "VOL%s\r"  # set target volume, always in UL
     __CMD_SET_DIR = "DIR%s\r"  # set the direction of the pump
@@ -623,34 +624,34 @@ class AladdinPump(SyringePump):
         self.ansParser = re.compile(self.__ANS_PATTERN)
         self.serial = serial_port
         self.display_name = display_name
-        if self.serial is not None:
-            self.serial.flush()
-            self.serial.flushInput()
-            self.serial.flushOutput()
-            self.serial.timeout = self.TIMEOUT
+        self.serial.open()
+        self.serial.flush()
+        self.serial.flushInput()
+        self.serial.flushOutput()
+        self.serial.timeout = self.TIMEOUT
         self.do_beep()
 
     def __del__(self):
-        pass
+        self.serial.flush()
+        self.serial.flushInput()
+        self.serial.flushOutput()
 
-    def get_info(self):
-        port = self.serial.portstr
+    def get_info(self) -> str:
+        port = self.serial.name
         version = self.get_version()
-        diameter = self.get_diameter()
+        diameter = self.get_diameter_mm()
         rate = self.get_rate()
         units = self.UNITS[self.get_units()]
-        target = self.get_target_volume()
-        volume = self.get_accumulated_volume()
+        target = self.get_target_volume_uL()
+        volume = self.get_accumulated_volume_uL()
         direction = self.get_direction().name
         return (
-            "Syringe Pump %s (%s) {direction: %s, diameter: %04f mm, rate: %04f %s, accumulated volume: %04f, "
-            "target volume: %04f}"
-            % (version, port, direction, diameter, rate, units, volume, target)
+                "Syringe Pump %s (%s) {direction: %s, diameter: %04f mm, rate: %04f %s, accumulated volume: %04f, "
+                "target volume: %04f}"
+                % (version, port, direction, diameter, rate, units, volume, target)
         )
 
     def send_command(self, command, return_all=False):
-        if self.serial is None:
-            raise UnforeseenException("No serial port connected")
         self.serial.flush()
         self.serial.flushInput()
         self.serial.flushOutput()
@@ -674,20 +675,20 @@ class AladdinPump(SyringePump):
             raise AlarmException(status)
         if "?" in message:
             if "?OOR" in message:
-                raise ValueOORException(message)
+                raise SyringePumpValueOORException(message)
             elif "?NA" in message:
-                raise InvalidCommandException(message)
+                raise SyringePumpInvalidCommandException(message)
             else:
-                raise UnforeseenException(message)
+                raise SyringePumpUnforeseenException(message)
         if return_all:
             return address, status, message
         else:
             return message
 
-    def parse(self, value):
+    def parse(self, value) -> tuple:
         m = self.ansParser.match(value)
         if m is None:
-            raise PumpInvalidAnswerException
+            raise SyringePumpInvalidAnswerException
         # noinspection PyStringFormat
         logger.debug(
             "<<received valid answer from pump [%02s]. Status is '%s' and answer is '%s'"
@@ -695,12 +696,24 @@ class AladdinPump(SyringePump):
         )
         return m.groups()
 
+    def convert_volume_units_to_uL(self, volume: float):
+        """
+        The units of the accumulated infusion and withdrawal volumes and the “Volume to be Dispensed” are set according to the diameter setting:
+         - From 0.1 to 14.0 mm Syringes smaller than 10 mL: Volume units are "µL"
+         - From 14.01 to 50.0 mm Syringes greater than or equal to 10 mL: V olume units are "mL"
+        """
+        diameter = self.get_diameter_mm()
+        if diameter <= 14.0:
+            return volume
+        else:
+            return volume*1e3
+
     def start(self):
         _, status, _ = self.send_command(self.__CMD_SET_RUNPHASE % 1, True)
         if "A?" in status:
-            raise SyringeAlarmException(status)
+            raise SyringePumpAlarmException(status)
         if not ("I" in status or "W" in status):
-            raise UnforeseenException("Pump did not start!")
+            raise SyringePumpUnforeseenException("Pump did not start!")
 
     def stop(self):
         _, status, _ = self.send_command(self.__CMD_SET_STOP, True)
@@ -709,16 +722,16 @@ class AladdinPump(SyringePump):
         if "?" in status:
             raise AladdinErrorException(status)
         if "P" not in status:
-            raise UnforeseenException("Pump did not stop")
+            raise SyringePumpUnforeseenException("Pump did not stop")
 
     def reverse(self):
         self.send_command(self.__CMD_SET_DIR % self.__ANS_DIR_REV)
 
-    def is_running(self):
+    def is_running(self) -> bool:
         _, status, _ = self.send_command("\r", True)
         return (
-            status == self.__ANS_STATUS_INFUSING
-            or status == self.__ANS_STATUS_WITHDRAWING
+                status == self.__ANS_STATUS_INFUSING
+                or status == self.__ANS_STATUS_WITHDRAWING
         )
 
     def clear_accumulated_volume(self):
@@ -728,90 +741,97 @@ class AladdinPump(SyringePump):
     def clear_target_volume(self):
         self.send_command(self.__CMD_SET_TARVOL % 0.0)
 
-    def set_direction(self, value):
+    def set_direction(self, value: SyringePump.STATE):
         if value == self.STATE.INFUSING:
             self.send_command(self.__CMD_SET_DIR % self.__ANS_DIR_INF)
         elif value == self.STATE.WITHDRAWING:
             self.send_command(self.__CMD_SET_DIR % self.__ANS_DIR_WDR)
         else:
-            raise InvalidCommandException()
+            raise SyringePumpInvalidCommandException()
 
-    def set_syringe_diameter(self, value):
+    def set_syringe_diameter_mm(self, value: float):
         if value <= 0:
-            raise ValueOORException("Diameter must be a positive float value")
+            raise SyringePumpValueOORException("Diameter must be a positive float value")
         else:
             self.send_command(self.__CMD_SET_DIAMETER % (self.format_float(value)))
 
-    def set_rate(self, value, units):
+    def set_rate(self, value: float, units: int):
         if value <= 0:
-            raise ValueOORException("Rate must be a positive value")
+            raise SyringePumpValueOORException("Rate must be a positive value")
         if units < 0 or units > len(self.UNITS) - 1:
-            raise ValueOORException(
+            raise SyringePumpValueOORException(
                 "Units must be an integer between %d and %d" % (0, len(self.UNITS) - 1)
             )
         ans = self.send_command(
             self.__CMD_SET_RATE
-            % (self.format_float(value), self.__ANS_UNITS[int(units)])
+            % (self.format_float(value), self.__ANS_UNITS[units])
         )
         if "?" in ans:
-            raise InvalidCommandException(ans)
+            raise SyringePumpInvalidCommandException(ans)
 
-    def set_target_volume(self, value):
-        """ sets the target volume in UL """
+    def set_target_volume_uL(self, value: float):
+        """ sets the target volume in μL """
         if value < 0:
-            raise ValueOORException("Target volume must be a positive float value")
+            raise SyringePumpValueOORException("Target volume must be a positive float value")
         else:
-            self.send_command(self.__CMD_SET_TARVOL % "UL")
+            diameter = self.get_diameter_mm()
+            if diameter>14.0:
+                # volume must be sent in mL
+                value *= 1e-3
             self.send_command(self.__CMD_SET_TARVOL % (self.format_float(value)))
 
-    def get_diameter(self):
+    def get_diameter_mm(self) -> float:
         ans = self.send_command(self.__CMD_GET_DIAMETER)
         return float(ans)
 
-    def get_rate(self):
+    def get_rate(self) -> float:
         ans = self.send_command(self.__CMD_GET_RATE)
         return float(ans[:-3])  # strips units
 
-    def get_units(self):
+    def get_units(self) -> int:
         ans = self.send_command(self.__CMD_GET_RATE)
         # [-2:] keeps only the last two char, corresponding to the units
-        if ans[-2:] == self.__ANS_UNITS_MLHR:
-            return 0
-        elif ans[-2:] == self.__ANS_UNITS_MLMIN:
-            return 1
-        elif ans[-2:] == self.__ANS_UNITS_ULHR:
-            return 2
-        elif ans[-2:] == self.__ANS_UNITS_ULMIN:
-            return 3
-        else:
-            raise UnforeseenException("ERROR while parsing rate value")
+        units = ans[-2:]
+        if units not in self.__ANS_UNITS:
+            raise SyringePumpInvalidAnswerException(f'Cannot parse unit returned by getUnits(): "{units}"')
+        return self.__ANS_UNITS.index(units)
 
-    def get_accumulated_infusion_volume(self):
+    def get_accumulated_infusion_volume_uL(self) -> float:
         ans = self.send_command(self.__CMD_GET_DISVOL)
         m = re.match(self.__ANS_DISVOL_PATTERN, ans)
         if m:
             vol = float(m.group(1))
+            units = m.group(3)
+            if units.upper().startswith('M'):
+                vol *= 1e3
             return vol
         else:
-            raise UnforeseenException("Error while parsing accumulated volume")
+            raise SyringePumpUnforeseenException("Error while parsing accumulated volume")
 
-    def get_accumulated_withdrawal_volume(self):
+    def get_accumulated_withdrawal_volume_uL(self) -> float:
         ans = self.send_command(self.__CMD_GET_DISVOL)
         m = re.match(self.__ANS_DISVOL_PATTERN, ans)
         if m:
             vol = float(m.group(2))
+            units = m.group(3)
+            if units.upper().startswith('M'):
+                vol *= 1e3
             return vol
         else:
-            raise UnforeseenException("Error while parsing accumulated volume")
+            raise SyringePumpUnforeseenException("Error while parsing accumulated volume")
 
-    def get_accumulated_volume(self):
-        return self.get_accumulated_infusion_volume()
+    def get_accumulated_volume_uL(self) -> float:
+        return self.get_accumulated_infusion_volume_uL()
 
-    def get_target_volume(self):
+    def get_target_volume_uL(self) -> float:
         ans = self.send_command(self.__CMD_GET_TARVOL)
-        return float(ans[:-2])  # strips units
+        volume = float(ans[:-2])
+        units = ans[-2:]
+        if units.upper().startswith('M'):
+            volume *= 1e3
+        return volume
 
-    def get_direction(self):
+    def get_direction(self) -> SyringePump.STATE:
         if self.is_running():
             ans = self.send_command(self.__CMD_GET_DIR)
             if ans == self.__ANS_DIR_INF:
@@ -819,18 +839,18 @@ class AladdinPump(SyringePump):
             elif ans == self.__ANS_DIR_WDR:
                 return self.STATE.WITHDRAWING
             else:
-                return LookupError("Error while parsing direction")
+                raise SyringePumpInvalidAnswerException("Error while parsing direction")
         else:
             return self.STATE.STOPPED
 
-    def get_possible_units(self):
+    def get_possible_units(self) -> list:
         return self.UNITS
 
-    def get_version(self):
+    def get_version(self) -> str:
         ans = self.send_command(self.__CMD_GET_VERSION)
         m = re.match(self.__ANS_VER_PATTERN, ans)
         if not m:
-            raise UnforeseenException("Error while parsing version number")
+            raise SyringePumpUnforeseenException("Error while parsing version number")
         else:
             # noinspection PyStringFormat
             return "Model #%s, firmware v%s.%s" % m.groups()
@@ -881,8 +901,218 @@ class AladdinAlarmException(SyringePumpException):
             Exception.__init__(self, status)
 
 
+def _convert_volume_to_uL(volume: float, units: str):
+    volume = float(volume)
+    match units[0].upper():
+        case 'M':
+            volume *= 1e3
+        case 'U':
+            pass
+        case 'N':
+            volume *= 1e-3
+        case 'P':
+            volume *= 1e-6
+    return volume
+
+
+class Harvard11ElitePump(SyringePump):
+    __CMD_RUN = 'run'
+    __CMD_STOP = 'stop'
+    __CMD_STATUS = 'status'
+    # noinspection SpellCheckingInspection
+    __CMD_CLEAR_ACCUMULATED_VOLUME = 'cvolume'
+    # noinspection SpellCheckingInspection
+    __CMD_CLEAR_TARGET_VOLUME = 'ctvolume'
+    __CMD_VERSION = 'ver'
+    __CMD_SET_POLL = 'poll {status}'
+    # noinspection SpellCheckingInspection
+    __CMD_GET_TARGET_VOL = 'tvolume'
+    # noinspection SpellCheckingInspection
+    __CMD_SET_TARGET_VOL = 'tvolume {volume} {units}'
+    # noinspection SpellCheckingInspection
+    __CMD_GET_ACCUMULATED_VOLUME = 'ivolume'
+    __CMD_GET_RATE = 'irate'
+    __CMD_SET_RATE = 'irate {rate} {units}'
+    __CMD_GET_DIAMETER = 'diameter'
+    __CMD_SET_DIAMETER = 'diameter {diameter} mm'
+
+    __ANS_TARGET_VOL_NOT_SET = 'Target volume not set.'
+
+    __WAIT_TIME = 0.1  # this is used as a timeout before we enable poll mode
+    __TERM_CHAR = b'\x11'
+
+    # noinspection PyMissingConstructor
+    def __init__(self, serial_port, address=0, display_name=""):
+        self.serial = serial_port
+        self.address = address
+        self.display_name = display_name
+
+        self._rate_fL_per_sec = 0
+        self._infuse_time_ms = 0
+        self._infuse_vol_fL = 0
+        self._state = self.STATE.STOPPED
+        self._stalled = False
+        self._target_reached = False
+
+        self.__PROMPT_PREFIX = f'\n{self.address:02d}:'
+        self.__PROMPT_STP = f'\r\n{self.address:02d}:'
+        self.__PROMPT_FWD = f'\r\n{self.address:02d}>'
+        self.__PROMPT_REV = f'\r\n{self.address:02d}<'
+        self.__PROMPT_STALLED = f'\r\n{self.address:02d}:*'
+        self.__PROMPT_TARGET_REACHED = f'\r\n{self.address:02d}:T*'
+        self.__POSSIBLE_PROMPTS = [self.__PROMPT_FWD, self.__PROMPT_REV, self.__PROMPT_STALLED,
+                                   self.__PROMPT_TARGET_REACHED, self.__PROMPT_STP]
+
+        self.serial.flush()
+        self.serial.flushInput()
+        self.serial.flushOutput()
+
+        if not self.check_connected():
+            raise SyringePumpException(f'Could not communicate with Harvard 11 Elite on port {serial_port.name}')
+
+        self._enable_poll_mode()
+        self._get_status()
+
+    def _enable_poll_mode(self, enabled=True):
+        cmd = self.__CMD_SET_POLL.format(status='ON' if enabled else 'OFF')
+        cmd += '\r'
+        self.serial.write(cmd.encode())
+        time.sleep(0.1)
+        self.serial.read(self.serial.inWaiting())
+
+    def check_connected(self):
+        cmd = self.__CMD_VERSION + '\r'
+        self.serial.write(cmd.encode())
+        time.sleep(0.1)
+        ans = self.serial.read(self.serial.inWaiting()).decode()
+        return 'ELITE' in ans
+
+    def __del__(self):
+        self.serial.flush()
+        self.serial.flushInput()
+        self.serial.flushOutput()
+        super().__del__()
+
+    def _send_command(self, command):
+        # noinspection DuplicatedCode
+        command = f"{self.address:02d}{command}\r\n"
+        logger.debug('>>sending command "%s"...' % (command.replace("\r", "\\r")))
+        self.serial.flush()
+        self.serial.flushInput()
+        self.serial.flushOutput()
+        self.serial.write(command.encode())
+        ans = self._get_answer()
+        nb_bytes = len(ans)
+        logger.debug('<<reading %d bytes in response: "%s"' % (nb_bytes, repr(ans)))
+        stripped_ans = self._strip_prompt(ans)
+        return stripped_ans
+
+    def _get_answer(self):
+        ans = self.serial.read_until(expected=self.__TERM_CHAR).decode()
+        if not ans.startswith(self.__PROMPT_PREFIX) and not any(ans.endswith(s) for s in self.__POSSIBLE_PROMPTS):
+            raise SyringePumpInvalidAnswerException(f'answer "{ans}" is not a valid answer')
+        return ans
+
+    def _strip_prompt(self, prompt):
+        prompt = prompt.replace(self.__TERM_CHAR.decode(), '')
+        for p in self.__POSSIBLE_PROMPTS:
+            prompt = prompt.replace(p.format(address=self.address), "")
+        prompt = prompt.replace(self.__PROMPT_PREFIX, '')
+        prompt = prompt.strip()
+        return prompt
+
+    def _get_status(self):
+        status_str = self._send_command(self.__CMD_STATUS)
+        status = status_str.split()
+        self._rate_fL_per_sec = int(status[0])
+        self._infuse_time_ms = int(status[1])
+        self._infuse_vol_fL = int(status[2])
+        flags = status[3]
+        if flags[0].islower():
+            self._state = self.STATE.STOPPED
+        else:
+            if flags[0] == 'I':
+                self._state = self.STATE.INFUSING
+            else:
+                self._state = self.STATE.WITHDRAWING
+        self._stalled = flags[2].upper() == 'S'
+        self._target_reached = flags[5].upper() == 'T'
+
+    def start(self):
+        self._send_command(self.__CMD_RUN)
+
+    def stop(self):
+        self._send_command(self.__CMD_STOP)
+
+    def reverse(self):
+        pass  # pump is not capable of reversing
+
+    def is_running(self) -> bool:
+        self._get_status()
+        return not self._state == self.STATE.STOPPED
+
+    def clear_accumulated_volume(self):
+        self._send_command(self.__CMD_CLEAR_ACCUMULATED_VOLUME)
+
+    def clear_target_volume(self):
+        self._send_command(self.__CMD_CLEAR_TARGET_VOLUME)
+
+    def set_direction(self, value: SyringePump.STATE):
+        pass  # not implemented
+
+    def set_syringe_diameter_mm(self, value: float):
+        self._send_command(self.__CMD_SET_DIAMETER.format(diameter=value))
+
+    def set_rate(self, value: float, units: int):
+        self._send_command(self.__CMD_SET_RATE.format(rate=value, units=self.UNITS[units]))
+
+    def set_target_volume_uL(self, value):
+        self._send_command(self.__CMD_SET_TARGET_VOL.format(volume=value, units='uL'))
+
+    def get_diameter_mm(self):
+        ans = self._send_command(self.__CMD_GET_DIAMETER)
+        dia, units = ans.split()
+        return float(dia)
+
+    def get_rate(self):
+        ans = self._send_command(self.__CMD_GET_RATE)
+        value, units = ans.split()
+        return float(value)  # FIXME: need to uniform units
+
+    def get_units(self):
+        ans = self._send_command(self.__CMD_GET_RATE)
+        value, units = ans.split()
+        try:
+            ix = [u.upper() for u in self.UNITS].index(units.upper())
+        except ValueError:
+            raise SyringePumpInvalidAnswerException(f'Could not understand units {units}')
+        return ix
+
+    def get_accumulated_volume_uL(self) -> float:
+        ans = self._send_command(self.__CMD_GET_ACCUMULATED_VOLUME)
+        volume, units = ans.split()
+        volume = _convert_volume_to_uL(volume, units)
+        return volume
+
+    def get_target_volume_uL(self) -> float:
+        ans = self._send_command(self.__CMD_GET_TARGET_VOL)
+        if ans == self.__ANS_TARGET_VOL_NOT_SET:
+            return 0.0
+        else:
+            volume, units = ans.split()
+            volume = _convert_volume_to_uL(volume, units)
+            return volume
+
+    def get_direction(self) -> SyringePump.STATE:
+        return self.STATE.INFUSING
+
+    def get_possible_units(self) -> list[str]:
+        return self.UNITS
+
+
 AVAIL_PUMP_MODULES = {
     "dummy": DummyPump,
     "aladdin": AladdinPump,
     "model11plus": Model11plusPump,
+    "Harvard11Elite": Harvard11ElitePump
 }
