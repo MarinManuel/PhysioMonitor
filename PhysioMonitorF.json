@@ -1,0 +1,217 @@
+{
+  "base-folder": "/home/RECORDINGS/",
+  "create-sub-folder": true,
+  "log-filename": "SurgicalLog.txt",
+  "measurements-output-period-min": 1,
+  "acquisition-modules": [
+    {
+      "module-name": "mcc",
+      "sampling-rate": 1000,
+      "module-args": {
+        "device": 0,
+        "channels": [
+          0,
+          1,
+          2,
+	  3,
+          4
+        ],
+        "input_modes": [
+          "SINGLE_ENDED",
+          "SINGLE_ENDED",
+	  "SINGLE_ENDED",
+          "SINGLE_ENDED",
+          "SINGLE_ENDED"
+        ],
+        "input_ranges": [
+          "BIP10VOLTS",
+	  "BIP10VOLTS",
+	  "BIP10VOLTS",
+          "BIP10VOLTS",
+          "BIP10VOLTS"
+        ]
+      }
+    }
+  ],
+  "channels": [
+    {
+      "acquisition-module-index": 0,
+      "channel-index": 0,
+      "window-size": 1,
+      "line-color": "#007F00",
+      "line-width": 2,
+      "label": "EKG",
+      "units": "V",
+      "scale": 1.0,
+      "offset": 0.0,
+      "autoscale": true,
+      "ymin": 0,
+      "ymax": 1,
+      "persistence": 3,
+      "trigger-mode": "RISING",
+      "trigger-level": 1.0,
+      "auto-trigger-level": true,
+      "trend-window-size": 1800,
+      "trend-period": 20,
+      "trend-function": "HR",
+      "trend-function-args": {},
+      "trend-units": "bpm",
+      "trend-autoscale": false,
+      "trend-ymin": 300,
+      "trend-ymax": 700,
+      "alarm-enabled": true,
+      "alarm-low": 350,
+      "alarm-high": 600,
+      "alarm-sound-file": "media/beep1.wav"
+    },
+	{
+      "acquisition-module-index": 0,
+      "channel-index": 3,
+      "window-size": 2,
+      "line-color": "#007F00",
+      "line-width": 2,
+      "label": "BP",
+      "units": "mmHg",
+      "scale": 100.0,
+      "offset": 0.0,
+      "autoscale": false,
+      "ymin": 0,
+      "ymax": 50,
+      "persistence": 1,
+      "trigger-mode": "AUTO",
+      "trigger-level": 1.0,
+      "auto-trigger-level": true,
+      "trend-window-size": 1800,
+      "trend-period": 1,
+      "trend-function": "average",
+      "trend-function-args": {
+      },
+      "trend-units": "mmHg",
+      "trend-autoscale": false,
+      "trend-ymin": 0,
+      "trend-ymax": 50,
+      "alarm-enabled": true,
+      "alarm-low": 20,
+      "alarm-high": 50,
+      "alarm-sound-file": "media/beep2.wav"
+    },
+    {
+      "acquisition-module-index": 0,
+      "channel-index": 1,
+      "window-size": 10,
+      "line-color": "b",
+      "line-width": 2,
+      "label": "Lung Pressure",
+      "units": "cmH2O",
+      "scale": 20,
+      "offset": -2.0,
+      "autoscale": false,
+      "ymin": 0,
+      "ymax": 20,
+      "persistence": 1,
+      "trigger-mode": "AUTO",
+      "trigger-level": 7,
+      "auto-trigger-level": false,
+      "trend-window-size": 1800,
+      "trend-period": 10,
+      "trend-function": "avgPeak",
+      "trend-function-args": {
+        "peakSize": 5.0
+      },
+      "trend-units": "cmH20",
+      "trend-autoscale": false,
+      "trend-ymin": 0.0,
+      "trend-ymax": 20.0,
+      "alarm-enabled": false,
+      "alarm-low": 3,
+      "alarm-high": 5,
+      "alarm-sound-file": "media/beep3.wav"
+    },
+    {
+      "acquisition-module-index": 0,
+      "channel-index": 2,
+      "window-size": 10,
+      "line-color": "#CC0000",
+      "line-width": 2,
+      "label": "PCO2",
+      "units": "%",
+      "scale": 1.0,
+      "offset": 0.0,
+      "autoscale": false,
+      "ymin": 0,
+      "ymax": 5,
+      "persistence": 1,
+      "trigger-mode": "AUTO",
+      "trigger-level": 0.0,
+      "auto-trigger-level": false,
+      "trend-window-size": 1800,
+      "trend-period": 1,
+      "trend-function": "lastPeak",
+      "trend-function-args": {
+        "peakSize": 1.0
+      },
+      "trend-units": "%",
+      "trend-autoscale": false,
+      "trend-ymin": 0,
+      "trend-ymax": 5,
+      "alarm-enabled": true,
+      "alarm-low": 3.5,
+      "alarm-high": 4.5,
+      "alarm-sound-file": "media/beep3.wav"
+    },
+    {
+      "acquisition-module-index": 0,
+      "channel-index": 4,
+      "window-size": 10,
+      "line-color": "#CC0000",
+      "line-width": 2,
+      "label": "Temperature",
+      "units": "°C",
+      "scale": 19.69,
+      "offset": 1.231,
+      "autoscale": false,
+      "ymin": 35,
+      "ymax": 40,
+      "persistence": 1,
+      "trigger-mode": "AUTO",
+      "trigger-level": 0.0,
+      "auto-trigger-level": false,
+      "trend-window-size": 1800,
+      "trend-period": 30,
+      "trend-function": "average",
+      "trend-function-args": {},
+      "trend-units": "°C",
+      "trend-autoscale": false,
+      "trend-ymin": 35,
+      "trend-ymax": 40,
+      "alarm-enabled": true,
+      "alarm-low": 36.5,
+      "alarm-high": 37.5,
+      "alarm-sound-file": "media/beep4.wav"
+    }
+  ],
+  "syringe-pump": {
+    "serial-ports": [
+      {
+        "port": "/dev/serial/by-path/pci-0000:00:14.0-usb-0:10:1.0",
+        "baudrate": 115200
+      },
+	  {
+        "port": "/dev/serial/by-path/pci-0000:00:14.0-usb-0:9:1.0",
+        "baudrate": 115200
+      }
+    ],
+    "pumps": [
+      {
+        "display-name": "Red Pump",
+        "module-name": "Harvard11Elite",
+        "serial-port": 0
+      },
+      {
+        "display-name": "Blue Pump",
+        "module-name": "Harvard11Elite",
+        "serial-port": 1
+      }
+    ]
+  }
+}
