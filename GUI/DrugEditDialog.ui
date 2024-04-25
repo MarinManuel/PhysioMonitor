@@ -115,7 +115,7 @@
       </widget>
      </item>
      <item row="3" column="1">
-      <widget class="QDoubleSpinBox" name="drugVolumeDoubleSpinBox">
+      <widget class="QDoubleSpinBox" name="drugVolumeSpinBox">
        <property name="sizePolicy">
         <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
          <horstretch>0</horstretch>
@@ -151,7 +151,7 @@
   <tabstop>drugNameLineEdit</tabstop>
   <tabstop>drugDoseSpinBox</tabstop>
   <tabstop>drugConcentrationSpinBox</tabstop>
-  <tabstop>drugVolumeDoubleSpinBox</tabstop>
+  <tabstop>drugVolumeSpinBox</tabstop>
   <tabstop>usePumpCheckBox</tabstop>
  </tabstops>
  <resources/>
