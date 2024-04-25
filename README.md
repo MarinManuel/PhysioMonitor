@@ -149,6 +149,7 @@ PhysioMonitor can control serial pumps through serial communication. Currently, 
 - fake pump, for testing purposes
 - [Aladdin pump](https://www.wpiinc.com/var-2300-aladdin-single-syringe-pump)
 - [Harvard Apparatus Model 11 plus (old model)](https://www.harvardapparatus.com/media/harvard/pdf/Pump11_2002.pdf)
+- [Harvard Apparatus Model 11 Elite Single](https://www.harvardapparatus.com/pumps-liquid-handling/syringe-pumps/infusion-only/standard-infusion-only-pump-11-elite-syringe-pumps.html)
 
 Parameters:
 ### `serial-ports`
@@ -182,6 +183,10 @@ The arguments to supply in `"module-args"` are:
 
 #### "modell11plus"
 Module for [Harvard Apparatus Model 11 plus (old model)](https://www.harvardapparatus.com/media/harvard/pdf/Pump11_2002.pdf).
+"module-args" is empty.
+
+#### "Harvard11ElitePump"
+Module for [Harvard Apparatus Model 11 Elite Single](https://www.harvardapparatus.com/pumps-liquid-handling/syringe-pumps/infusion-only/standard-infusion-only-pump-11-elite-syringe-pumps.html)
 "module-args" is empty.
 
 # Installation

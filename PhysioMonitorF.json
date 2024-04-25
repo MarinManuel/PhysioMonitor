@@ -12,26 +12,24 @@
         "channels": [
           0,
           1,
-          2
+          2,
+	  3,
+          4
         ],
         "input_modes": [
           "SINGLE_ENDED",
+          "SINGLE_ENDED",
+	  "SINGLE_ENDED",
           "SINGLE_ENDED",
           "SINGLE_ENDED"
         ],
         "input_ranges": [
           "BIP10VOLTS",
+	  "BIP10VOLTS",
+	  "BIP10VOLTS",
           "BIP10VOLTS",
           "BIP10VOLTS"
         ]
-      }
-    },
-    {
-      "module-name": "serial",
-      "sampling-rate": 50,
-      "module-args": {
-        "port": "/dev/ttyUSB0",
-        "baudrate": 115200
       }
     }
   ],
@@ -66,6 +64,37 @@
       "alarm-high": 600,
       "alarm-sound-file": "media/beep1.wav"
     },
+	{
+      "acquisition-module-index": 0,
+      "channel-index": 3,
+      "window-size": 2,
+      "line-color": "#007F00",
+      "line-width": 2,
+      "label": "BP",
+      "units": "mmHg",
+      "scale": 100.0,
+      "offset": 0.0,
+      "autoscale": false,
+      "ymin": 0,
+      "ymax": 50,
+      "persistence": 1,
+      "trigger-mode": "AUTO",
+      "trigger-level": 1.0,
+      "auto-trigger-level": true,
+      "trend-window-size": 1800,
+      "trend-period": 1,
+      "trend-function": "average",
+      "trend-function-args": {
+      },
+      "trend-units": "mmHg",
+      "trend-autoscale": false,
+      "trend-ymin": 0,
+      "trend-ymax": 50,
+      "alarm-enabled": true,
+      "alarm-low": 20,
+      "alarm-high": 50,
+      "alarm-sound-file": "media/beep2.wav"
+    },
     {
       "acquisition-module-index": 0,
       "channel-index": 1,
@@ -99,7 +128,7 @@
       "alarm-sound-file": "media/beep3.wav"
     },
     {
-      "acquisition-module-index": 1,
+      "acquisition-module-index": 0,
       "channel-index": 2,
       "window-size": 10,
       "line-color": "#CC0000",
@@ -131,15 +160,15 @@
       "alarm-sound-file": "media/beep3.wav"
     },
     {
-      "acquisition-module-index": 1,
-      "channel-index": 1,
+      "acquisition-module-index": 0,
+      "channel-index": 4,
       "window-size": 10,
       "line-color": "#CC0000",
       "line-width": 2,
       "label": "Temperature",
       "units": "°C",
-      "scale": 1.0,
-      "offset": 0.0,
+      "scale": 19.69,
+      "offset": 1.231,
       "autoscale": false,
       "ymin": 35,
       "ymax": 40,
@@ -164,26 +193,24 @@
   "syringe-pump": {
     "serial-ports": [
       {
-        "port": "/dev/ttyUSB1",
-        "baudrate": 19200
+        "port": "/dev/serial/by-path/pci-0000:00:14.0-usb-0:10:1.0",
+        "baudrate": 115200
+      },
+	  {
+        "port": "/dev/serial/by-path/pci-0000:00:14.0-usb-0:9:1.0",
+        "baudrate": 115200
       }
     ],
     "pumps": [
       {
-        "display-name": "Green Pump",
-        "module-name": "aladdin",
-        "serial-port": 0,
-        "module-args": {
-          "address": 0
-        }
+        "display-name": "Red Pump",
+        "module-name": "Harvard11Elite",
+        "serial-port": 0
       },
       {
         "display-name": "Blue Pump",
-        "module-name": "aladdin",
-        "serial-port": 0,
-        "module-args": {
-          "address": 1
-        }
+        "module-name": "Harvard11Elite",
+        "serial-port": 1
       }
     ]
   }

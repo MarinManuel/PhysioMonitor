@@ -590,7 +590,7 @@ class PhysioMonitorMainScreen(QMainWindow):
         # Configure acquisition system(s)
         ##
         self.__streams = []
-        for acq_module in config["acquisition-MODULES"]:
+        for acq_module in config["acquisition-modules"]:
             if acq_module["module-name"] not in AVAIL_ACQ_MODULES:
                 # noinspection PyTypeChecker
                 QMessageBox.critical(
@@ -1166,6 +1166,8 @@ class StartDialog(QDialog):
             self.pumps = []
             if "pumps" in self.config["syringe-pump"]:
                 for pump_conf in self.config["syringe-pump"]["pumps"]:
+                    if "module-args" not in pump_conf:
+                        pump_conf["module-args"] = {}
                     model = pump_conf["module-name"]
                     if model not in AVAIL_PUMP_MODULES:
                         raise ValueError(
