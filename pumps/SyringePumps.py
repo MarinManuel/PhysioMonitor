@@ -1011,6 +1011,8 @@ class Harvard11ElitePump(SyringePump):
         ans = self.serial.read_until(expected=self.__TERM_CHAR).decode()
         if not ans.startswith(self.__PROMPT_PREFIX) and not any(ans.endswith(s) for s in self.__POSSIBLE_PROMPTS):
             raise SyringePumpInvalidAnswerException(f'answer "{ans}" is not a valid answer')
+        if "Out of range" in ans:
+            raise SyringePumpValueOORException(ans)
         return ans
 
     def _strip_prompt(self, prompt):
