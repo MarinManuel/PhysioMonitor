@@ -943,6 +943,7 @@ class Harvard11ElitePump(SyringePump):
 
     # noinspection PyMissingConstructor
     def __init__(self, serial_port, address=0, display_name=""):
+        logger.setLevel(logging.DEBUG)
         self.serial = serial_port
         self.address = address
         self.display_name = display_name
@@ -954,12 +955,12 @@ class Harvard11ElitePump(SyringePump):
         self._stalled = False
         self._target_reached = False
 
-        self.__PROMPT_PREFIX = f'\n{self.address:02d}:'
-        self.__PROMPT_STP = f'\r\n{self.address:02d}:'
-        self.__PROMPT_FWD = f'\r\n{self.address:02d}>'
-        self.__PROMPT_REV = f'\r\n{self.address:02d}<'
-        self.__PROMPT_STALLED = f'\r\n{self.address:02d}:*'
-        self.__PROMPT_TARGET_REACHED = f'\r\n{self.address:02d}:T*'
+        self.__PROMPT_PREFIX = f'{self.address:02d}:'
+        self.__PROMPT_STP = f'{self.address:02d}:'
+        self.__PROMPT_FWD = f'{self.address:02d}>'
+        self.__PROMPT_REV = f'{self.address:02d}<'
+        self.__PROMPT_STALLED = f'{self.address:02d}:*'
+        self.__PROMPT_TARGET_REACHED = f'{self.address:02d}:T*'
         self.__POSSIBLE_PROMPTS = [self.__PROMPT_FWD, self.__PROMPT_REV, self.__PROMPT_STALLED,
                                    self.__PROMPT_TARGET_REACHED, self.__PROMPT_STP]
 
@@ -972,6 +973,8 @@ class Harvard11ElitePump(SyringePump):
 
         self._enable_poll_mode()
         self._get_status()
+        self.clear_accumulated_volume()
+        self.clear_target_volume()
 
     def _enable_poll_mode(self, enabled=True):
         cmd = self.__CMD_SET_POLL.format(status='ON' if enabled else 'OFF')
@@ -1009,7 +1012,7 @@ class Harvard11ElitePump(SyringePump):
 
     def _get_answer(self):
         ans = self.serial.read_until(expected=self.__TERM_CHAR).decode()
-        if not ans.startswith(self.__PROMPT_PREFIX) and not any(ans.endswith(s) for s in self.__POSSIBLE_PROMPTS):
+        if not ans.startswith(self.__PROMPT_PREFIX) and not any(ans.endswith(s+self.__TERM_CHAR.decode()) for s in self.__POSSIBLE_PROMPTS):
             raise SyringePumpInvalidAnswerException(f'answer "{ans}" is not a valid answer')
         if "Out of range" in ans:
             raise SyringePumpValueOORException(ans)
