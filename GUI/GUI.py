@@ -987,7 +987,6 @@ class DrugPumpPanel(QWidget):
             self._pump.set_target_volume_uL(volume)
             self._pump.clear_accumulated_volume()
             self._pump.start()
-            time.sleep(0.1)
         except SyringePumps.SyringePumpValueOORException:
             # noinspection PyTypeChecker
             QMessageBox.warning(
@@ -1002,6 +1001,7 @@ class DrugPumpPanel(QWidget):
         # disable buttons to avoid double injections, and start a thread to wait for the injection
         # to finish
         self.enable_inject_buttons(False)
+        time.sleep(0.2) # this is required for some pumps that take some time to get running, otherwise the GUI thinks the perfusion stops immediately
         self._waitThread = threading.Thread(
             target=self.wait_for_end_of_injection,
             args=(curr_rate, curr_units, curr_dir),
