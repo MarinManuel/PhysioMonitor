@@ -985,7 +985,9 @@ class DrugPumpPanel(QWidget):
             self._pump.set_direction(self._pump.STATE.INFUSING)
             self._pump.set_rate(self._pump.bolus_rate, self._pump.bolus_rate_units)
             self._pump.set_target_volume_uL(volume)
+            self._pump.clear_accumulated_volume()
             self._pump.start()
+            time.sleep(0.1)
         except SyringePumps.SyringePumpValueOORException:
             # noinspection PyTypeChecker
             QMessageBox.warning(

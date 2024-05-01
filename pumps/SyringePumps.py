@@ -943,7 +943,6 @@ class Harvard11ElitePump(SyringePump):
 
     # noinspection PyMissingConstructor
     def __init__(self, serial_port, address=0, display_name=""):
-        logger.setLevel(logging.DEBUG)
         self.serial = serial_port
         self.address = address
         self.display_name = display_name
