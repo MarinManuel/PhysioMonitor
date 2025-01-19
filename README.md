@@ -219,3 +219,7 @@ sudo apt install ni-daqmx
 sudo dkms autoinstall
 ```
  2. reboot
+
+
+# Acknowledgements
+This work was supported in part by NIH-NINDS R01NS110953 and R01NS132487.
