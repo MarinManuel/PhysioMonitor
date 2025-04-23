@@ -1301,6 +1301,11 @@ class StartDialog(QDialog):
             )
         self.drugTable.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
 
+        self.drugTable.setDragEnabled(True)
+        self.drugTable.setAcceptDrops(True)
+        self.drugTable.setDragDropMode(QTableView.InternalMove)
+        self.drugTable.setDefaultDropAction(Qt.MoveAction)
+
         # PUMPS TAB
         if len([p for p in self.pumps if p is not None]) > 0:
             self.pumpComboBox.clear()
