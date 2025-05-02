@@ -128,35 +128,46 @@ class DrugTableModel(QAbstractTableModel):
     def flags(self, index):
         if not index.isValid():
             return Qt.ItemIsEnabled
-        return Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
+        return (
+            Qt.ItemIsSelectable
+            | Qt.ItemIsEnabled
+            | Qt.ItemIsDragEnabled
+            | Qt.ItemIsDropEnabled
+        )
 
     def supportedDropActions(self):
         return Qt.MoveAction
 
     def mimeTypes(self):
-        return ['application/x-qabstractitemmodeldatalist']
+        return ["application/x-qabstractitemmodeldatalist"]
 
     def mimeData(self, indexes):
         data = super().mimeData(indexes)
-        data.setData('application/x-qabstractitemmodeldatalist', b'')
+        data.setData("application/x-qabstractitemmodeldatalist", b"")
         return data
 
     def dropMimeData(self, data, action, row, column, parent):
         if action == Qt.IgnoreAction:
             return False
-        if not data.hasFormat('application/x-qabstractitemmodeldatalist'):
+        if not data.hasFormat("application/x-qabstractitemmodeldatalist"):
             return False
         if row == -1:
             row = self.rowCount()
-        self.beginMoveRows(QModelIndex(), parent.row(), parent.row(), QModelIndex(), row)
-        self.drugList.insert(row, self.drugList.pop(parent.row()))
+        self.beginMoveRows(
+            QModelIndex(), parent.row(), parent.row(), QModelIndex(), row
+        )
+        self._data.insert(row, self._data.pop(parent.row()))
         self.endMoveRows()
         return True
 
-    def moveRows(self, sourceParent, sourceRow, count, destinationParent, destinationChild):
+    def moveRows(
+        self, sourceParent, sourceRow, count, destinationParent, destinationChild
+    ):
         if count != 1:
             return False
-        self.beginMoveRows(sourceParent, sourceRow, sourceRow, destinationParent, destinationChild)
-        self.drugList.insert(destinationChild, self.drugList.pop(sourceRow))
+        self.beginMoveRows(
+            sourceParent, sourceRow, sourceRow, destinationParent, destinationChild
+        )
+        self._data.insert(destinationChild, self._data.pop(sourceRow))
         self.endMoveRows()
         return True
