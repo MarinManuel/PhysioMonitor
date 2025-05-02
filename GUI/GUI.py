@@ -10,6 +10,7 @@ from typing import List
 import numpy as np
 import pygame
 import serial
+
 # noinspection PyUnresolvedReferences
 from PyQt5 import uic
 from PyQt5.QtCore import QTimer, QRect, QModelIndex, QDate, QStringListModel, QSize
@@ -47,7 +48,12 @@ from PyQt5.QtWidgets import (
 )
 
 from GUI.Models import DrugTableModel
-from GUI.scope import ScopeLayoutWidget, PagedScope, ScrollingScope, vline_color_iterator
+from GUI.scope import (
+    ScopeLayoutWidget,
+    PagedScope,
+    ScrollingScope,
+    vline_color_iterator,
+)
 from misc import Drug, Sex, Subject, LogBox
 from pumps import SyringePumps
 from pumps.SyringePumps import SyringePumpException, AVAIL_PUMP_MODULES, SyringePump
@@ -170,13 +176,13 @@ class CustomDialog(QDialog):
 
     @staticmethod
     def get_double(
-            parent,
-            value=0.0,
-            min_val=0.0,
-            max_val=float("inf"),
-            units=None,
-            text=None,
-            title="Enter a value",
+        parent,
+        value=0.0,
+        min_val=0.0,
+        max_val=float("inf"),
+        units=None,
+        text=None,
+        title="Enter a value",
     ):
         dlg = CustomDialog()
 
@@ -207,7 +213,7 @@ class CustomDialog(QDialog):
 
     @staticmethod
     def get_time(
-            parent, value=0, text="Time before alarm", title="Enter the amount of time"
+        parent, value=0, text="Time before alarm", title="Enter the amount of time"
     ):
         # noinspection PyUnusedLocal
         def on_radio_click(event):
@@ -340,7 +346,7 @@ class DrugEditDialog(QDialog):
     pumpComboBox: QComboBox
 
     def __init__(
-            self, name="", dose=0.0, concentration=0.0, volume=0, pump_id=None, pumps=None
+        self, name="", dose=0.0, concentration=0.0, volume=0, pump_id=None, pumps=None
     ):
         super().__init__()
         pumps = [] if pumps is None else pumps
@@ -363,7 +369,7 @@ class DrugEditDialog(QDialog):
 
     @staticmethod
     def get_drug_data(
-            name="", dose=0.0, concentration=0.0, volume=0, pump_id=None, pumps=None
+        name="", dose=0.0, concentration=0.0, volume=0, pump_id=None, pumps=None
     ):
         dlg = DrugEditDialog(name, dose, concentration, volume, pump_id, pumps)
         result = dlg.exec()
@@ -440,10 +446,10 @@ class DrugTimer(QLabel):
         self._duration = datetime.datetime.today() - self._startTime
         self.update_text()
         if (
-                self._alarmThresh is not None
-                and self._duration.seconds > self._alarmThresh
-                and not self._isAlarmTimerPastMaxDuration
-                and not self._alarmTimer.isActive()
+            self._alarmThresh is not None
+            and self._duration.seconds > self._alarmThresh
+            and not self._isAlarmTimerPastMaxDuration
+            and not self._alarmTimer.isActive()
         ):
             self.trigger_alarm()
 
@@ -470,8 +476,8 @@ class DrugTimer(QLabel):
         )
         self._alarmTimerCount += 1
         if (
-                self._alarmTimer.isActive()
-                and self._alarmTimerCount > self._alarmTimerMaxCount
+            self._alarmTimer.isActive()
+            and self._alarmTimerCount > self._alarmTimerMaxCount
         ):
             self.on_alarm_past_max_duration()
 
@@ -623,15 +629,21 @@ class PhysioMonitorMainScreen(QMainWindow):
 
         for i, drug in enumerate(config["drug-list"]):
             if drug.pump is not None and self.pumps[drug.pump] is not None:
-                panel = DrugPumpPanel(None, drug.name, drug.volume, pump=self.pumps[drug.pump],
-                                      alarm_sound_file="./media/beep3x6.wav", main_window=self)
+                panel = DrugPumpPanel(
+                    None,
+                    drug.name,
+                    drug.volume,
+                    pump=self.pumps[drug.pump],
+                    alarm_sound_file="./media/beep3x6.wav",
+                    main_window=self,
+                )
             else:
                 panel = DrugPanel(
                     None,
                     drug.name,
                     drug.volume,
                     alarm_sound_filename="./media/beep3x6.wav",
-                    main_window=self
+                    main_window=self,
                 )
             self.drugPanelsLayout.addWidget(panel)
 
@@ -744,12 +756,12 @@ class DrugPanel(QWidget):
     _main_window: PhysioMonitorMainScreen
 
     def __init__(
-            self,
-            parent,
-            drug_name,
-            drug_volume,
-            alarm_sound_filename=None,
-            main_window: PhysioMonitorMainScreen = None,
+        self,
+        parent,
+        drug_name,
+        drug_volume,
+        alarm_sound_filename=None,
+        main_window: PhysioMonitorMainScreen = None,
     ):
         super().__init__(parent)
         uic.loadUi("./GUI/DrugPanel.ui", self)
@@ -851,8 +863,15 @@ class DrugPumpPanel(QWidget):
     _pumpLabel: QLabel
     _waitThread: threading.Thread
 
-    def __init__(self, parent, drug_name, drug_volume, pump: SyringePumps.SyringePump, alarm_sound_file=None,
-                 main_window: PhysioMonitorMainScreen = None):
+    def __init__(
+        self,
+        parent,
+        drug_name,
+        drug_volume,
+        pump: SyringePumps.SyringePump,
+        alarm_sound_file=None,
+        main_window: PhysioMonitorMainScreen = None,
+    ):
         super().__init__(parent)
         uic.loadUi("./GUI/DrugPumpPanel.ui", self)
 
@@ -938,10 +957,7 @@ class DrugPumpPanel(QWidget):
                     rate=self._perfRateSpinBox.value(),
                     units=self._perfUnitComboBox.currentText(),
                 )
-                self._main_window.write_to_log(
-                    [],
-                    note=note
-                )
+                self._main_window.write_to_log([], note=note)
                 self._main_window.add_vline(note)
             except SyringePumps.SyringePumpValueOORException:
                 # noinspection PyTypeChecker
@@ -1001,7 +1017,9 @@ class DrugPumpPanel(QWidget):
         # disable buttons to avoid double injections, and start a thread to wait for the injection
         # to finish
         self.enable_inject_buttons(False)
-        time.sleep(0.2) # this is required for some pumps that take some time to get running, otherwise the GUI thinks the perfusion stops immediately
+        time.sleep(
+            0.2
+        )  # this is required for some pumps that take some time to get running, otherwise the GUI thinks the perfusion stops immediately
         self._waitThread = threading.Thread(
             target=self.wait_for_end_of_injection,
             args=(curr_rate, curr_units, curr_dir),
@@ -1185,7 +1203,9 @@ class StartDialog(QDialog):
                             try:
                                 pump = model(
                                     display_name=pump_conf["display-name"],
-                                    serial_port=self.serialPorts[pump_conf["serial-port"]],
+                                    serial_port=self.serialPorts[
+                                        pump_conf["serial-port"]
+                                    ],
                                     **pump_conf["module-args"],
                                 )
                                 pump.is_running()  # check that pump is working, should raise Exception if not
@@ -1511,7 +1531,7 @@ class PumpConfigPanel(QWidget):
             self.enable_prime_controls(True)
 
     def wait_for_end_of_injection(
-            self,
+        self,
     ):
         while self.pump.is_running():
             self.primeProgressBar.setValue(
@@ -1519,7 +1539,7 @@ class PumpConfigPanel(QWidget):
                     100
                     * self.pump.get_accumulated_volume_uL()
                     / (
-                            self.primeTargetVolSpinBox.value() * 1e3
+                        self.primeTargetVolSpinBox.value() * 1e3
                     )  # convert mL for dialog box to μL
                 )
             )

@@ -151,14 +151,22 @@ class DrugTableModel(QAbstractTableModel):
             return False
         if not data.hasFormat("application/x-qabstractitemmodeldatalist"):
             return False
-        if row == -1:
+
+        # Determine the source and destination rows
+        source_row = parent.row()
+        if row == -1:  # Dropping at the end
             row = self.rowCount()
-        self.beginMoveRows(
-            QModelIndex(), parent.row(), parent.row(), QModelIndex(), row
-        )
-        self._data.insert(row, self._data.pop(parent.row()))
-        self.endMoveRows()
-        return True
+
+        # Move the data
+        if 0 <= source_row < len(self._data) and 0 <= row <= len(self._data):
+            self.beginMoveRows(
+                QModelIndex(), source_row, source_row, QModelIndex(), row
+            )
+            self._data.insert(row, self._data.pop(source_row))
+            self.endMoveRows()
+            return True
+
+        return False
 
     def moveRows(
         self, sourceParent, sourceRow, count, destinationParent, destinationChild
