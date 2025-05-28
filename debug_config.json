@@ -25,8 +25,8 @@
       "ymin": 0,
       "ymax": 1,
       "persistence": 3,
-      "trigger-mode": "RISING",
-      "trigger-level": 1.0,
+      "trigger-mode": "AUTO",
+      "trigger-level": 0.0,
       "auto-trigger-level": true,
       "trend-window-size": 1800,
       "trend-period": 20,
@@ -104,6 +104,8 @@
       "alarm-sound-file": "media/beep6.wav"
     }
   ],
-  "serial-ports": [],
-  "pumps": []
+  "syringe-pump": {
+    "serial-ports": [],
+    "pumps": []
+  }
 }

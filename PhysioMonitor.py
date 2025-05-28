@@ -48,7 +48,7 @@ try:
         logger.info(f"Reading configuration from <{args.config}>")
         config = json.load(f)
 except (FileNotFoundError, json.JSONDecodeError):
-    parser.error("filed passed to --config is not a valid configuration file")
+    parser.error("file passed to --config is not a valid configuration file")
 
 app = QApplication(sys.argv)
 startDlg = StartDialog(config=config, prev_values_file=args.prev_values_file)

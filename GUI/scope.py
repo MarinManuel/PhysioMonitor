@@ -831,8 +831,8 @@ def peakdet(v, delta, x=None):
     if delta < 0:
         raise ValueError("Input argument delta must be positive")
 
-    mn, mx = np.Inf, -np.Inf
-    mnpos, mxpos = np.NaN, np.NaN
+    mn, mx = np.inf, -np.inf
+    mnpos, mxpos = np.nan, np.nan
 
     lookformax = True
 
